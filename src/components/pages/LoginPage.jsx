@@ -1,11 +1,9 @@
-// src/components/pages/LoginPage.jsx
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { MOCK_USERS } from "../../data/mockData";
-import InputField from "../common/InputField";
-import Button from "../common/Button";
-import Alert from "../common/Alert";
+import { getDefaultRoute } from "../../constants";
+import { InputField, Button, Alert } from "../common";
 
 function LoginPage() {
   const navigate = useNavigate();
@@ -84,22 +82,9 @@ function LoginPage() {
 
         login(userSession, "mock-jwt-token-" + user.id);
 
-        switch (user.role_id) {
-          case 4:
-            navigate("/admin/dashboard");
-            break;
-          case 3:
-            navigate("/evm/dashboard");
-            break;
-          case 2:
-            navigate("/dealer/manager/dashboard");
-            break;
-          case 1:
-            navigate("/dealer/staff/dashboard");
-            break;
-          default:
-            navigate("/");
-        }
+        // Navigate to appropriate dashboard using route constants
+        const route = getDefaultRoute(user.role_id);
+        navigate(route);
       } else {
         setLoginError("Invalid email or password");
       }
@@ -271,12 +256,6 @@ function LoginPage() {
                 />
                 <span className="ml-2 text-sm text-slate-300">Remember me</span>
               </label>
-              <button
-                type="button"
-                className="text-sm text-blue-400 hover:text-blue-300 transition"
-              >
-                Forgot password?
-              </button>
             </div>
 
             <Button
@@ -290,14 +269,8 @@ function LoginPage() {
           </form>
 
           {/* Footer */}
-          <div className="mt-6 flex items-center">
-            <div className="flex-1 border-t border-slate-600"></div>
-            <span className="px-4 text-sm text-slate-400">Need help?</span>
-            <div className="flex-1 border-t border-slate-600"></div>
-          </div>
-
-          <div className="mt-6 text-center">
-            <p className="text-sm text-slate-400">
+          <div className="mt-6 pt-6 border-t border-slate-700">
+            <p className="text-sm text-slate-400 text-center">
               Contact your system administrator for access
             </p>
           </div>
