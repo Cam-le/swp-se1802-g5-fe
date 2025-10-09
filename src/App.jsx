@@ -9,12 +9,31 @@ import { useAuth } from "./hooks/useAuth";
 import { ROLES, ROUTES } from "./constants";
 import { ErrorBoundary } from "./components/common";
 
-// Pages
+// Public Pages
 import LoginPage from "./components/pages/LoginPage";
+
+// Dealer Staff Pages
 import DealerStaffDashboard from "./components/pages/DealerStaff/DashboardPage";
+
+// Dealer Manager Pages
 import DealerManagerDashboard from "./components/pages/DealerManager/DashboardPage";
+
+// EVM Staff Pages
 import EVMStaffDashboard from "./components/pages/EVMStaff/DashboardPage";
+import VehicleRequestsPage from "./components/pages/EVMStaff/VehicleRequestsPage";
+import PricingManagementPage from "./components/pages/EVMStaff/PricingManagementPage";
+
+// Admin Pages
 import AdminDashboard from "./components/pages/Admin/DashboardPage";
+import UserManagementPage from "./components/pages/Admin/UserManagementPage";
+import RoleManagementPage from "./components/pages/Admin/RoleManagementPage";
+import SystemSettingsPage from "./components/pages/Admin/SystemSettingsPage";
+import SystemReportsPage from "./components/pages/Admin/SystemReportsPage";
+import AdminVehiclesPage from "./components/pages/Admin/AdminVehiclesPage";
+import AdminDealersPage from "./components/pages/Admin/AdminDealersPage";
+
+// Shared Pages
+import ProfilePage from "./components/pages/ProfilePage";
 
 // Protected Route Component
 function ProtectedRoute({ children, allowedRoles }) {
@@ -99,6 +118,14 @@ function App() {
                 </ProtectedRoute>
               }
             />
+            <Route
+              path={ROUTES.DEALER_STAFF.PROFILE}
+              element={
+                <ProtectedRoute allowedRoles={[ROLES.DEALER_STAFF.id]}>
+                  <ProfilePage />
+                </ProtectedRoute>
+              }
+            />
 
             {/* Dealer Manager Routes */}
             <Route
@@ -106,6 +133,14 @@ function App() {
               element={
                 <ProtectedRoute allowedRoles={[ROLES.DEALER_MANAGER.id]}>
                   <DealerManagerDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path={ROUTES.DEALER_MANAGER.PROFILE}
+              element={
+                <ProtectedRoute allowedRoles={[ROLES.DEALER_MANAGER.id]}>
+                  <ProfilePage />
                 </ProtectedRoute>
               }
             />
@@ -119,6 +154,30 @@ function App() {
                 </ProtectedRoute>
               }
             />
+            <Route
+              path={ROUTES.EVM_STAFF.VEHICLE_REQUESTS}
+              element={
+                <ProtectedRoute allowedRoles={[ROLES.EVM_STAFF.id]}>
+                  <VehicleRequestsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path={ROUTES.EVM_STAFF.PRICING}
+              element={
+                <ProtectedRoute allowedRoles={[ROLES.EVM_STAFF.id]}>
+                  <PricingManagementPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path={ROUTES.EVM_STAFF.PROFILE}
+              element={
+                <ProtectedRoute allowedRoles={[ROLES.EVM_STAFF.id]}>
+                  <ProfilePage />
+                </ProtectedRoute>
+              }
+            />
 
             {/* Admin Routes */}
             <Route
@@ -126,6 +185,62 @@ function App() {
               element={
                 <ProtectedRoute allowedRoles={[ROLES.ADMIN.id]}>
                   <AdminDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path={ROUTES.ADMIN.USERS}
+              element={
+                <ProtectedRoute allowedRoles={[ROLES.ADMIN.id]}>
+                  <UserManagementPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path={ROUTES.ADMIN.ROLES}
+              element={
+                <ProtectedRoute allowedRoles={[ROLES.ADMIN.id]}>
+                  <RoleManagementPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path={ROUTES.ADMIN.SETTINGS}
+              element={
+                <ProtectedRoute allowedRoles={[ROLES.ADMIN.id]}>
+                  <SystemSettingsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path={ROUTES.ADMIN.REPORTS}
+              element={
+                <ProtectedRoute allowedRoles={[ROLES.ADMIN.id]}>
+                  <SystemReportsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path={ROUTES.ADMIN.VEHICLES}
+              element={
+                <ProtectedRoute allowedRoles={[ROLES.ADMIN.id]}>
+                  <AdminVehiclesPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path={ROUTES.ADMIN.DEALERS}
+              element={
+                <ProtectedRoute allowedRoles={[ROLES.ADMIN.id]}>
+                  <AdminDealersPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path={ROUTES.ADMIN.PROFILE}
+              element={
+                <ProtectedRoute allowedRoles={[ROLES.ADMIN.id]}>
+                  <ProfilePage />
                 </ProtectedRoute>
               }
             />

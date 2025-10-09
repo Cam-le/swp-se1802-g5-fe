@@ -30,19 +30,24 @@ export const EVM_STAFF_ROUTES = {
   DASHBOARD: "/evm/dashboard",
   VEHICLES: "/evm/vehicles",
   INVENTORY: "/evm/inventory",
+  VEHICLE_REQUESTS: "/evm/vehicle-requests",
   DEALERS: "/evm/dealers",
-  REPORTS: "/evm/reports",
+  PRICING: "/evm/pricing",
   PROMOTIONS: "/evm/promotions",
+  REPORTS: "/evm/reports",
+  PROFILE: "/evm/profile",
 };
 
 // Admin routes
 export const ADMIN_ROUTES = {
   DASHBOARD: "/admin/dashboard",
   USERS: "/admin/users",
+  ROLES: "/admin/roles",
   DEALERS: "/admin/dealers",
   VEHICLES: "/admin/vehicles",
-  REPORTS: "/admin/reports",
   SETTINGS: "/admin/settings",
+  REPORTS: "/admin/reports",
+  PROFILE: "/admin/profile",
 };
 
 // All routes combined for easy access
