@@ -14,94 +14,7 @@ import {
   EmptyState,
 } from "../../common";
 import { formatCurrency, formatShortDate } from "../../../utils/helpers";
-
-// Mock API - Replace with real API calls
-const mockVehicleApi = {
-  getAll: async () => {
-    // Simulate API delay
-    await new Promise((resolve) => setTimeout(resolve, 800));
-    return {
-      data: [
-        {
-          id: "3e72703a-22be-4f57-8284-167ea1a7319e",
-          modelName: "VinFast VF 9",
-          version: "Eco",
-          category: "SUV điện 7 chỗ",
-          color: "Xanh Dương Đậm",
-          imageUrl:
-            "https://static-cms-prod.vinfastauto.com/Vinfast-vf-9-suv-dien-hang-sang-cua-nguoi-viet_16538909531.jpg",
-          description:
-            "VinFast VF 9 là SUV điện 7 chỗ hạng sang, phạm vi di chuyển dài, phù hợp cho gia đình và doanh nghiệp.",
-          batteryCapacity: 92,
-          rangePerCharge: 505,
-          basePrice: 1750000000,
-          status: "Available",
-          launchDate: "2025-10-08T12:21:37.015",
-          evmId: "5a568024-0463-446b-8014-e097838ddaed",
-          evmName: "Công ty Cổ phần VinFast",
-          createdAt: "2025-10-08T13:16:14.2154246",
-          updatedAt: null,
-        },
-        {
-          id: "eda4a2e9-e881-4444-9230-9a310fb41039",
-          modelName: "VinFast VF 8",
-          version: "Plus",
-          category: "SUV điện",
-          color: "Trắng Ngọc Trai",
-          imageUrl:
-            "https://vinfast-vn.vn/wp-content/uploads/2023/10/vinfast-vf8-1-1.png",
-          description:
-            "VinFast VF 8 là mẫu SUV điện 5 chỗ, thiết kế hiện đại, vận hành mạnh mẽ và thân thiện với môi trường.",
-          batteryCapacity: 90,
-          rangePerCharge: 470,
-          basePrice: 1250000000,
-          status: "Available",
-          launchDate: "2025-10-08T12:21:37.015",
-          evmId: "5a568024-0463-446b-8014-e097838ddaed",
-          evmName: "Công ty Cổ phần VinFast",
-          createdAt: "2025-10-08T13:13:59.4214866",
-          updatedAt: "2025-10-08T13:15:01.1424413",
-        },
-      ],
-      isSuccess: true,
-      messages: ["Success."],
-    };
-  },
-
-  create: async (vehicleData) => {
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    return {
-      data: {
-        id: Math.random().toString(36).substr(2, 9),
-        ...vehicleData,
-        createdAt: new Date().toISOString(),
-        updatedAt: null,
-      },
-      isSuccess: true,
-      messages: ["Vehicle created successfully."],
-    };
-  },
-
-  update: async (id, vehicleData) => {
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    return {
-      data: {
-        ...vehicleData,
-        id,
-        updatedAt: new Date().toISOString(),
-      },
-      isSuccess: true,
-      messages: ["Vehicle updated successfully."],
-    };
-  },
-};
-
-// Status options
-const STATUS_OPTIONS = [
-  { value: "Available", label: "Available" },
-  { value: "Discontinued", label: "Discontinued" },
-  { value: "Coming Soon", label: "Coming Soon" },
-];
+import { vehicleApi } from "../../../services/vehicleApi";
 
 // Category options
 const CATEGORY_OPTIONS = [
@@ -148,7 +61,6 @@ function AdminVehiclesPage() {
     batteryCapacity: "",
     rangePerCharge: "",
     basePrice: "",
-    status: "Available",
     launchDate: "",
   });
   const [formErrors, setFormErrors] = useState({});
@@ -168,13 +80,22 @@ function AdminVehiclesPage() {
   const fetchVehicles = async () => {
     try {
       setLoading(true);
-      const response = await mockVehicleApi.getAll();
+      const response = await vehicleApi.getAll();
       if (response.isSuccess) {
         setVehicles(response.data);
+      } else {
+        setAlert({
+          type: "error",
+          message: response.messages?.[0] || "Failed to load vehicles",
+        });
       }
     } catch (error) {
       console.error("Error fetching vehicles:", error);
-      setAlert({ type: "error", message: "Failed to load vehicles" });
+      const errorMessage =
+        error.response?.data?.messages?.[0] ||
+        error.message ||
+        "Failed to load vehicles";
+      setAlert({ type: "error", message: errorMessage });
     } finally {
       setLoading(false);
     }
@@ -215,7 +136,6 @@ function AdminVehiclesPage() {
       batteryCapacity: "",
       rangePerCharge: "",
       basePrice: "",
-      status: "Available",
       launchDate: "",
     });
     setFormErrors({});
@@ -236,7 +156,6 @@ function AdminVehiclesPage() {
       batteryCapacity: vehicle.batteryCapacity.toString(),
       rangePerCharge: vehicle.rangePerCharge.toString(),
       basePrice: vehicle.basePrice.toString(),
-      status: vehicle.status,
       launchDate: vehicle.launchDate
         ? new Date(vehicle.launchDate).toISOString().split("T")[0]
         : "",
@@ -259,7 +178,6 @@ function AdminVehiclesPage() {
       batteryCapacity: "",
       rangePerCharge: "",
       basePrice: "",
-      status: "Available",
       launchDate: "",
     });
     setFormErrors({});
@@ -310,7 +228,6 @@ function AdminVehiclesPage() {
       errors.basePrice = "Base price must be a positive number";
     }
 
-    if (!formData.status) errors.status = "Status is required";
     if (!formData.launchDate) errors.launchDate = "Launch date is required";
 
     setFormErrors(errors);
@@ -329,6 +246,7 @@ function AdminVehiclesPage() {
     setAlert({ type: "", message: "" });
 
     try {
+      // Prepare vehicle data (backend handles evmId, evmName, and status automatically)
       const vehicleData = {
         modelName: formData.modelName.trim(),
         version: formData.version.trim(),
@@ -339,47 +257,60 @@ function AdminVehiclesPage() {
         batteryCapacity: Number(formData.batteryCapacity),
         rangePerCharge: Number(formData.rangePerCharge),
         basePrice: Number(formData.basePrice),
-        status: formData.status,
         launchDate: new Date(formData.launchDate).toISOString(),
-        evmId: "5a568024-0463-446b-8014-e097838ddaed", // Mock EVM ID
-        evmName: "Công ty Cổ phần VinFast", // Mock EVM Name
       };
 
       if (modalMode === "create") {
-        const response = await mockVehicleApi.create(vehicleData);
+        const response = await vehicleApi.create(vehicleData);
         if (response.isSuccess) {
+          // Add the new vehicle to the list
           setVehicles((prev) => [response.data, ...prev]);
           setAlert({
             type: "success",
-            message: "Vehicle created successfully!",
+            message: response.messages?.[0] || "Vehicle created successfully!",
           });
           setTimeout(() => {
             closeModal();
           }, 1500);
+        } else {
+          setAlert({
+            type: "error",
+            message: response.messages?.[0] || "Failed to create vehicle",
+          });
         }
       } else {
-        const response = await mockVehicleApi.update(
+        const response = await vehicleApi.update(
           editingVehicle.id,
           vehicleData
         );
         if (response.isSuccess) {
+          // Update the vehicle in the list
           setVehicles((prev) =>
             prev.map((v) => (v.id === editingVehicle.id ? response.data : v))
           );
           setAlert({
             type: "success",
-            message: "Vehicle updated successfully!",
+            message: response.messages?.[0] || "Vehicle updated successfully!",
           });
           setTimeout(() => {
             closeModal();
           }, 1500);
+        } else {
+          setAlert({
+            type: "error",
+            message: response.messages?.[0] || "Failed to update vehicle",
+          });
         }
       }
     } catch (error) {
       console.error("Error submitting vehicle:", error);
+      const errorMessage =
+        error.response?.data?.messages?.[0] ||
+        error.message ||
+        `Failed to ${modalMode} vehicle. Please try again.`;
       setAlert({
         type: "error",
-        message: `Failed to ${modalMode} vehicle. Please try again.`,
+        message: errorMessage,
       });
     } finally {
       setIsSubmitting(false);
@@ -433,7 +364,9 @@ function AdminVehiclesPage() {
               onChange={(e) => setStatusFilter(e.target.value)}
               options={[
                 { value: "", label: "All Statuses" },
-                ...STATUS_OPTIONS,
+                { value: "Available", label: "Available" },
+                { value: "Discontinued", label: "Discontinued" },
+                { value: "Coming Soon", label: "Coming Soon" },
               ]}
               placeholder="Filter by status"
             />
@@ -700,30 +633,18 @@ function AdminVehiclesPage() {
               />
             </div>
 
-            {/* Base Price & Status */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <InputField
-                id="basePrice"
-                name="basePrice"
-                type="number"
-                label="Base Price (VND)"
-                value={formData.basePrice}
-                onChange={handleInputChange}
-                error={formErrors.basePrice}
-                placeholder="e.g., 1250000000"
-                required
-              />
-              <Select
-                id="status"
-                name="status"
-                label="Status"
-                value={formData.status}
-                onChange={handleInputChange}
-                options={STATUS_OPTIONS}
-                error={formErrors.status}
-                required
-              />
-            </div>
+            {/* Base Price */}
+            <InputField
+              id="basePrice"
+              name="basePrice"
+              type="number"
+              label="Base Price (VND)"
+              value={formData.basePrice}
+              onChange={handleInputChange}
+              error={formErrors.basePrice}
+              placeholder="e.g., 1250000000"
+              required
+            />
 
             {/* Launch Date */}
             <InputField
