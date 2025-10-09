@@ -14,9 +14,17 @@ import LoginPage from "./components/pages/LoginPage";
 
 // Dealer Staff Pages
 import DealerStaffDashboard from "./components/pages/DealerStaff/DashboardPage";
+import CustomersPage from "./components/pages/DealerStaff/CustomersPage";
+import AppointmentsPage from "./components/pages/DealerStaff/AppointmentsPage";
+import VehiclesPage from "./components/pages/DealerStaff/VehiclesPage";
+import OrdersPage from "./components/pages/DealerStaff/OrdersPage";
+
 
 // Dealer Manager Pages
 import DealerManagerDashboard from "./components/pages/DealerManager/DashboardPage";
+import DealerManagerStaffPage from "./components/pages/DealerManager/DealerManagerStaffPage";
+import DealerManagerReportsPage from "./components/pages/DealerManager/DealerManagerReportsPage";
+import DealerManagerPromotionsPage from "./components/pages/DealerManager/DealerManagerPromotionsPage";
 
 // EVM Staff Pages
 import EVMStaffDashboard from "./components/pages/EVMStaff/DashboardPage";
@@ -131,6 +139,38 @@ function App() {
                 </ProtectedRoute>
               }
             />
+            <Route
+              path={ROUTES.DEALER_STAFF.CUSTOMERS}
+              element={
+                <ProtectedRoute allowedRoles={[ROLES.DEALER_STAFF.id]}>
+                  <CustomersPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path={ROUTES.DEALER_STAFF.ORDERS}
+              element={
+                <ProtectedRoute allowedRoles={[ROLES.DEALER_STAFF.id]}>
+                  <OrdersPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path={ROUTES.DEALER_STAFF.VEHICLES}
+              element={
+                <ProtectedRoute allowedRoles={[ROLES.DEALER_STAFF.id]}>
+                  <VehiclesPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path={ROUTES.DEALER_STAFF.APPOINTMENTS}
+              element={
+                <ProtectedRoute allowedRoles={[ROLES.DEALER_STAFF.id]}>
+                  <AppointmentsPage />
+                </ProtectedRoute>
+              }
+            />
 
             {/* Dealer Manager Routes */}
             <Route
@@ -146,6 +186,64 @@ function App() {
               element={
                 <ProtectedRoute allowedRoles={[ROLES.DEALER_MANAGER.id]}>
                   <ProfilePage />
+                </ProtectedRoute>
+              }
+            />
+            {/* Dealer Manager: access to staff features */}
+            <Route
+              path={ROUTES.DEALER_MANAGER.CUSTOMERS}
+              element={
+                <ProtectedRoute allowedRoles={[ROLES.DEALER_MANAGER.id]}>
+                  <CustomersPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path={ROUTES.DEALER_MANAGER.ORDERS}
+              element={
+                <ProtectedRoute allowedRoles={[ROLES.DEALER_MANAGER.id]}>
+                  <OrdersPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path={ROUTES.DEALER_MANAGER.VEHICLES}
+              element={
+                <ProtectedRoute allowedRoles={[ROLES.DEALER_MANAGER.id]}>
+                  <VehiclesPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path={ROUTES.DEALER_MANAGER.APPOINTMENTS}
+              element={
+                <ProtectedRoute allowedRoles={[ROLES.DEALER_MANAGER.id]}>
+                  <AppointmentsPage />
+                </ProtectedRoute>
+              }
+            />
+            {/* Dealer Manager specific pages */}
+            <Route
+              path={ROUTES.DEALER_MANAGER.REPORTS}
+              element={
+                <ProtectedRoute allowedRoles={[ROLES.DEALER_MANAGER.id]}>
+                  <DealerManagerReportsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path={ROUTES.DEALER_MANAGER.STAFF}
+              element={
+                <ProtectedRoute allowedRoles={[ROLES.DEALER_MANAGER.id]}>
+                  <DealerManagerStaffPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path={ROUTES.DEALER_MANAGER.PROMOTIONS}
+              element={
+                <ProtectedRoute allowedRoles={[ROLES.DEALER_MANAGER.id]}>
+                  <DealerManagerPromotionsPage />
                 </ProtectedRoute>
               }
             />

@@ -7,6 +7,7 @@ export const PUBLIC_ROUTES = {
 // Dealer Staff routes
 export const DEALER_STAFF_ROUTES = {
   DASHBOARD: "/dealer/staff/dashboard",
+  PROFILE: "/dealer/staff/profile",
   VEHICLES: "/dealer/staff/vehicles",
   CUSTOMERS: "/dealer/staff/customers",
   ORDERS: "/dealer/staff/orders",
@@ -16,6 +17,7 @@ export const DEALER_STAFF_ROUTES = {
 // Dealer Manager routes
 export const DEALER_MANAGER_ROUTES = {
   DASHBOARD: "/dealer/manager/dashboard",
+  PROFILE: "/dealer/manager/profile",
   VEHICLES: "/dealer/manager/vehicles",
   CUSTOMERS: "/dealer/manager/customers",
   ORDERS: "/dealer/manager/orders",
