@@ -22,6 +22,11 @@ import DealerManagerDashboard from "./components/pages/DealerManager/DashboardPa
 import EVMStaffDashboard from "./components/pages/EVMStaff/DashboardPage";
 import VehicleRequestsPage from "./components/pages/EVMStaff/VehicleRequestsPage";
 import PricingManagementPage from "./components/pages/EVMStaff/PricingManagementPage";
+import EVMStaffDealersPage from "./components/pages/EVMStaff/EVMStaffDealersPage";
+import EVMStaffInventoryPage from "./components/pages/EVMStaff/EVMStaffInventoryPage";
+import EVMStaffPromotionsPage from "./components/pages/EVMStaff/EVMStaffPromotionsPage";
+import EVMStaffReportsPage from "./components/pages/EVMStaff/EVMStaffReportsPage";
+import EVMStaffVehiclesPage from "./components/pages/EVMStaff/EVMStaffVehiclesPage";
 
 // Admin Pages
 import AdminDashboard from "./components/pages/Admin/DashboardPage";
@@ -167,6 +172,46 @@ function App() {
               element={
                 <ProtectedRoute allowedRoles={[ROLES.EVM_STAFF.id]}>
                   <PricingManagementPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path={ROUTES.EVM_STAFF.DEALERS}
+              element={
+                <ProtectedRoute allowedRoles={[ROLES.EVM_STAFF.id]}>
+                  <EVMStaffDealersPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path={ROUTES.EVM_STAFF.INVENTORY}
+              element={
+                <ProtectedRoute allowedRoles={[ROLES.EVM_STAFF.id]}>
+                  <EVMStaffInventoryPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path={ROUTES.EVM_STAFF.PROMOTIONS}
+              element={
+                <ProtectedRoute allowedRoles={[ROLES.EVM_STAFF.id]}>
+                  <EVMStaffPromotionsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path={ROUTES.EVM_STAFF.REPORTS}
+              element={
+                <ProtectedRoute allowedRoles={[ROLES.EVM_STAFF.id]}>
+                  <EVMStaffReportsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path={ROUTES.EVM_STAFF.VEHICLES}
+              element={
+                <ProtectedRoute allowedRoles={[ROLES.EVM_STAFF.id]}>
+                  <EVMStaffVehiclesPage />
                 </ProtectedRoute>
               }
             />

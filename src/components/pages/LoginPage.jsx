@@ -24,15 +24,19 @@ function LoginPage() {
   const validateForm = () => {
     const newErrors = {};
 
-    if (!formData.email) {
+    // Trim email and password for validation
+    const email = formData.email.trim();
+    const password = formData.password.trim();
+
+    if (!email) {
       newErrors.email = "Email is required";
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+    } else if (!/\S+@\S+\.\S+/.test(email)) {
       newErrors.email = "Email is invalid";
     }
 
-    if (!formData.password) {
+    if (!password) {
       newErrors.password = "Password is required";
-    } else if (formData.password.length < 6) {
+    } else if (password.length < 6) {
       newErrors.password = "Password must be at least 6 characters";
     }
 
@@ -42,9 +46,11 @@ function LoginPage() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+    // Trim whitespace from email and password
+    const trimmedValue = value.trim();
     setFormData((prev) => ({
       ...prev,
-      [name]: value,
+      [name]: trimmedValue,
     }));
     if (errors[name]) {
       setErrors((prev) => ({
@@ -68,8 +74,12 @@ function LoginPage() {
     setLoginError("");
 
     setTimeout(() => {
+      // Trim values before authentication check
+      const email = formData.email.trim();
+      const password = formData.password.trim();
+
       const user = MOCK_USERS.find(
-        (u) => u.email === formData.email && u.password === formData.password
+        (u) => u.email === email && u.password === password
       );
 
       if (user) {
