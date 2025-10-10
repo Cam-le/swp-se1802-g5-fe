@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
-import { MOCK_USERS } from "../../data/mockData";
+import { authApi } from "../../services/authApi";
 import { getDefaultRoute } from "../../constants";
 import { InputField, Button, Alert } from "../common";
 import ForgotPasswordModal from "./ForgotPasswordModal";
@@ -36,8 +36,8 @@ function LoginPage() {
 
     if (!password) {
       newErrors.password = "Password is required";
-    } else if (password.length < 6) {
-      newErrors.password = "Password must be at least 6 characters";
+    } else if (password.length < 5) {
+      newErrors.password = "Password must be at least 5 characters";
     }
 
     setErrors(newErrors);
@@ -46,11 +46,9 @@ function LoginPage() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    // Trim whitespace from email and password
-    const trimmedValue = value.trim();
     setFormData((prev) => ({
       ...prev,
-      [name]: trimmedValue,
+      [name]: value,
     }));
     if (errors[name]) {
       setErrors((prev) => ({
@@ -63,7 +61,7 @@ function LoginPage() {
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!validateForm()) {
@@ -73,37 +71,81 @@ function LoginPage() {
     setIsLoading(true);
     setLoginError("");
 
-    setTimeout(() => {
-      // Trim values before authentication check
-      const email = formData.email.trim();
-      const password = formData.password.trim();
+    try {
+      // Call real API
+      const response = await authApi.login(formData.email, formData.password);
 
-      const user = MOCK_USERS.find(
-        (u) => u.email === email && u.password === password
-      );
+      // Check if login was successful
+      if (response.isSuccess && response.data) {
+        const apiData = response.data;
 
-      if (user) {
+        console.log("✅ Login successful! Processing user data...", {
+          userId: apiData.userId,
+          email: apiData.email,
+          roleName: apiData.roleName,
+          roleId: apiData.roleId,
+        });
+
+        // Log the exact API response to see field names
+        console.log("📋 Raw API data:", apiData);
+
+        // Map API response to user session structure
+        // Note: API returns 'roleId' (camelCase)
         const userSession = {
-          id: user.id,
-          email: user.email,
-          full_name: user.full_name,
-          role: user.role,
-          role_id: user.role_id,
-          dealer_id: user.dealer_id || null,
-          dealer_name: user.dealer_name || null,
+          id: apiData.userId,
+          email: apiData.email,
+          full_name:
+            apiData.username || apiData.fullName || apiData.email.split("@")[0],
+          role: apiData.roleName,
+          role_id: apiData.roleId, // API uses camelCase 'roleId'
+          dealer_id: apiData.dealerId || null,
+          dealer_name: null,
         };
 
-        login(userSession, "mock-jwt-token-" + user.id);
+        console.log("👤 User session created:", userSession);
+        console.log(
+          "🔑 Role ID extracted:",
+          apiData.roleId,
+          "→",
+          userSession.role_id
+        );
 
-        // Navigate to appropriate dashboard using route constants
-        const route = getDefaultRoute(user.role_id);
-        navigate(route);
+        // Store token, user data, and token expiration
+        login(userSession, apiData.token, apiData.tokenExpires);
+
+        console.log("💾 Token and user data stored in localStorage");
+
+        // Navigate to appropriate dashboard
+        const route = getDefaultRoute(apiData.roleId);
+        console.log(`🚀 Navigating to: ${route} (Role ID: ${apiData.roleId})`);
+
+        // Use replace to prevent back button issues
+        navigate(route, { replace: true });
       } else {
-        setLoginError("Invalid email or password");
+        // Handle unsuccessful login
+        console.log("❌ Login response indicates failure:", response);
+        const errorMessage =
+          response.messages?.[0] || "Login failed. Please try again.";
+        setLoginError(errorMessage);
       }
+    } catch (error) {
+      console.error("Login error:", error);
 
+      // Handle different error types
+      if (error.message === "Invalid email or password") {
+        setLoginError("Invalid email or password");
+      } else if (error.response?.data?.messages?.[0]) {
+        setLoginError(error.response.data.messages[0]);
+      } else if (error.message) {
+        setLoginError(error.message);
+      } else {
+        setLoginError(
+          "Unable to connect to the server. Please try again later."
+        );
+      }
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   return (
@@ -145,13 +187,13 @@ function LoginPage() {
             {/* Demo Accounts Info */}
             <div className="mb-6 bg-blue-500 bg-opacity-10 border border-blue-500 rounded-lg p-4">
               <p className="text-blue-400 text-sm font-medium mb-2">
-                Demo Accounts:
+                Demo Accounts (Password: 12345):
               </p>
               <div className="space-y-1 text-xs text-blue-300">
-                <p>Admin: admin@evm.com / admin123</p>
-                <p>EVM Staff: evmstaff@evm.com / evm123</p>
-                <p>Manager: manager@dealer1.com / manager123</p>
-                <p>Staff: staff@dealer1.com / staff123</p>
+                <p>• Admin: admin@gmail.com</p>
+                <p>• EVM Staff: EVMStaff@gmail.com</p>
+                <p>• Dealer Manager: DealerManager@gmail.com</p>
+                <p>• Dealer Staff: dealerStaff@gmail.com</p>
               </div>
             </div>
 
