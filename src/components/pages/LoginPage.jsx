@@ -187,7 +187,7 @@ function LoginPage() {
             {/* Demo Accounts Info */}
             <div className="mb-6 bg-blue-500 bg-opacity-10 border border-blue-500 rounded-lg p-4">
               <p className="text-blue-400 text-sm font-medium mb-2">
-                Demo Accounts (Password: 12345):
+                Accounts (Password: 12345):
               </p>
               <div className="space-y-1 text-xs text-blue-300">
                 <p>• Admin: admin@gmail.com</p>
