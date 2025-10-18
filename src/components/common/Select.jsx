@@ -27,9 +27,8 @@ function Select({
         value={value}
         onChange={onChange}
         disabled={disabled}
-        className={`w-full px-4 py-3 bg-slate-700 border ${
-          error ? "border-red-500" : "border-slate-600"
-        } rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition disabled:opacity-50 disabled:cursor-not-allowed`}
+        className={`w-full px-4 py-3 bg-slate-700 border ${error ? "border-red-500" : "border-slate-600"
+          } rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition disabled:opacity-50 disabled:cursor-not-allowed`}
       >
         <option value="" disabled>
           {placeholder}
