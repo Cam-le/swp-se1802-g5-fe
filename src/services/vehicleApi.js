@@ -7,11 +7,15 @@ import apiClient from "./apiClient";
 export const vehicleApi = {
   /**
    * Get all vehicles
-   * @returns {Promise} Response with array of vehicles
+   * @param {string} userId - User UUID (required)
+   * @returns {Promise} Response with array of vehicles including stock information
    */
-  getAll: async () => {
+  getAll: async (userId) => {
     try {
-      const response = await apiClient.get("/api/Vehicle");
+      if (!userId) {
+        throw new Error("userId is required to fetch vehicles");
+      }
+      const response = await apiClient.get(`/api/Vehicle?userId=${userId}`);
       return response.data; // Returns { data: [...], resultStatus: 0, messages: [...], isSuccess: true }
     } catch (error) {
       throw error;

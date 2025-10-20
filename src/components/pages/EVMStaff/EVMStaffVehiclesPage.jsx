@@ -15,6 +15,7 @@ import {
 } from "../../common";
 import { formatCurrency, formatShortDate } from "../../../utils/helpers";
 import { vehicleApi } from "../../../services/vehicleApi";
+import { useAuth } from "../../../hooks/useAuth";
 
 // Category options
 const CATEGORY_OPTIONS = [
@@ -38,7 +39,15 @@ const getStatusVariant = (status) => {
   }
 };
 
+// Stock badge variant based on quantity
+const getStockVariant = (stock) => {
+  if (stock === 0) return "danger";
+  if (stock <= 5) return "warning";
+  return "success";
+};
+
 function EVMStaffVehiclesPage() {
+  const { user } = useAuth();
   const [vehicles, setVehicles] = useState([]);
   const [filteredVehicles, setFilteredVehicles] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -69,8 +78,10 @@ function EVMStaffVehiclesPage() {
 
   // Fetch vehicles on mount
   useEffect(() => {
-    fetchVehicles();
-  }, []);
+    if (user?.id) {
+      fetchVehicles();
+    }
+  }, [user]);
 
   // Filter vehicles when search or filter changes
   useEffect(() => {
@@ -80,7 +91,7 @@ function EVMStaffVehiclesPage() {
   const fetchVehicles = async () => {
     try {
       setLoading(true);
-      const response = await vehicleApi.getAll();
+      const response = await vehicleApi.getAll(user.id);
       if (response.isSuccess) {
         setVehicles(response.data);
       } else {
@@ -263,8 +274,8 @@ function EVMStaffVehiclesPage() {
       if (modalMode === "create") {
         const response = await vehicleApi.create(vehicleData);
         if (response.isSuccess) {
-          // Add the new vehicle to the list
-          setVehicles((prev) => [response.data, ...prev]);
+          // Refresh the vehicle list to get updated data including stock
+          await fetchVehicles();
           setAlert({
             type: "success",
             message: response.messages?.[0] || "Vehicle created successfully!",
@@ -284,10 +295,8 @@ function EVMStaffVehiclesPage() {
           vehicleData
         );
         if (response.isSuccess) {
-          // Update the vehicle in the list
-          setVehicles((prev) =>
-            prev.map((v) => (v.id === editingVehicle.id ? response.data : v))
-          );
+          // Refresh the vehicle list to get updated data including stock
+          await fetchVehicles();
           setAlert({
             type: "success",
             message: response.messages?.[0] || "Vehicle updated successfully!",
@@ -412,6 +421,7 @@ function EVMStaffVehiclesPage() {
                 <Table.HeaderCell>Category</Table.HeaderCell>
                 <Table.HeaderCell>Battery & Range</Table.HeaderCell>
                 <Table.HeaderCell align="right">Base Price</Table.HeaderCell>
+                <Table.HeaderCell align="center">In Stock</Table.HeaderCell>
                 <Table.HeaderCell>Status</Table.HeaderCell>
                 <Table.HeaderCell align="center">Actions</Table.HeaderCell>
               </Table.Header>
@@ -465,6 +475,13 @@ function EVMStaffVehiclesPage() {
                       </span>
                     </Table.Cell>
 
+                    {/* Stock */}
+                    <Table.Cell align="center">
+                      <Badge variant={getStockVariant(vehicle.currentStock)}>
+                        {vehicle.currentStock} units
+                      </Badge>
+                    </Table.Cell>
+
                     {/* Status */}
                     <Table.Cell>
                       <Badge variant={getStatusVariant(vehicle.status)}>
@@ -503,8 +520,28 @@ function EVMStaffVehiclesPage() {
 
         {/* Stats */}
         {!loading && vehicles.length > 0 && (
-          <div className="text-sm text-slate-400">
-            Showing {filteredVehicles.length} of {vehicles.length} vehicle(s)
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-slate-800 rounded-lg border border-slate-700 p-4">
+              <p className="text-sm text-slate-400">Total Vehicles</p>
+              <p className="text-2xl font-bold text-white mt-1">
+                {filteredVehicles.length}
+              </p>
+            </div>
+            <div className="bg-slate-800 rounded-lg border border-slate-700 p-4">
+              <p className="text-sm text-slate-400">Total Stock</p>
+              <p className="text-2xl font-bold text-white mt-1">
+                {filteredVehicles.reduce(
+                  (sum, v) => sum + (v.currentStock || 0),
+                  0
+                )}
+              </p>
+            </div>
+            <div className="bg-slate-800 rounded-lg border border-slate-700 p-4">
+              <p className="text-sm text-slate-400">Out of Stock</p>
+              <p className="text-2xl font-bold text-white mt-1">
+                {filteredVehicles.filter((v) => v.currentStock === 0).length}
+              </p>
+            </div>
           </div>
         )}
       </div>
