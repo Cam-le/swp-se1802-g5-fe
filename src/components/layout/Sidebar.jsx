@@ -123,18 +123,6 @@ function Sidebar() {
             ),
           },
           {
-            name: "Request Vehicles",
-            path: "/dealer/manager/request-vehicles",
-            icon: (
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 8c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 10c-4.41 0-8-1.79-8-4V6c0-2.21 3.59-4 8-4s8 1.79 8 4v8c0 2.21-3.59 4-8 4z"
-              />
-            ),
-          },
-          {
             name: "Customers",
             path: "/dealer/manager/customers",
             icon: (
@@ -167,6 +155,18 @@ function Sidebar() {
                 strokeLinejoin="round"
                 strokeWidth={2}
                 d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+              />
+            ),
+          },
+          {
+            name: "Verify Requests",
+            path: "/dealer/manager/request-verification",
+            icon: (
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 8c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 10c-4.41 0-8-1.79-8-4V6c0-2.21 3.59-4 8-4s8 1.79 8 4v8c0 2.21-3.59 4-8 4z"
               />
             ),
           },

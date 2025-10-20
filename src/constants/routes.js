@@ -27,6 +27,7 @@ export const DEALER_MANAGER_ROUTES = {
   REPORTS: "/dealer/manager/reports",
   PROMOTIONS: "/dealer/manager/promotions",
   REQUEST_VEHICLES: "/dealer/manager/request-vehicles",
+  REQUEST_VERIFICATION: "/dealer/manager/request-verification",
 };
 
 // EVM Staff routes

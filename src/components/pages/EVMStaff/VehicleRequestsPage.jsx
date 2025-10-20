@@ -18,10 +18,6 @@ function VehicleRequestsPage() {
     fetchRequests();
   }, []);
 
-  const getVehicleName = (id) => {
-    const v = MOCK_VEHICLES.find((veh) => veh.id === id);
-    return v ? `${v.model_name} (${v.version})` : id;
-  };
   const getUserName = (id) => {
     const u = MOCK_USERS.find((user) => user.id === id);
     return u ? u.full_name : id;
@@ -57,7 +53,7 @@ function VehicleRequestsPage() {
                 {requests.map((req) => (
                   <tr key={req.id} className="border-b border-slate-700">
                     <td className="px-4 py-2 text-white">{req.id}</td>
-                    <td className="px-4 py-2 text-white">{getVehicleName(req.vehicle_id)}</td>
+                    <td className="px-4 py-2 text-white">{req.modelName ? `${req.modelName} ${req.version}` : getVehicleName(req.vehicle_id)}</td>
                     <td className="px-4 py-2 text-white">{req.quantity}</td>
                     <td className="px-4 py-2 text-white">{req.dealer_id}</td>
                     <td className="px-4 py-2 text-white">{getUserName(req.requested_by)}</td>

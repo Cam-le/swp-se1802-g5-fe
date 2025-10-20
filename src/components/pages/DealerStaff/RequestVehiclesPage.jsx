@@ -14,6 +14,7 @@ function RequestVehiclesPage() {
     const [selectedVehicle, setSelectedVehicle] = useState("");
     const [quantity, setQuantity] = useState(1);
     const [requestSuccess, setRequestSuccess] = useState(false);
+    const [note, setNote] = useState("");
     const [vehicles, setVehicles] = useState([]);
     const [loading, setLoading] = useState(true);
 
@@ -44,12 +45,17 @@ function RequestVehiclesPage() {
     const handleSubmitRequest = async (e) => {
         e.preventDefault();
         try {
+            const vehicleObj = vehicles.find(v => v.id === selectedVehicle);
             await vehicleRequestApi.create({
                 vehicle_id: selectedVehicle,
+                modelName: vehicleObj?.modelName || vehicleObj?.model_name || "",
+                version: vehicleObj?.version || "",
                 quantity,
+                note,
                 requested_by: user?.id,
                 requested_by_role: user?.role,
                 dealer_id: user?.dealer_id,
+                status: "pending_manager"
             });
             setRequestSuccess(true);
             setTimeout(() => {
@@ -57,6 +63,7 @@ function RequestVehiclesPage() {
                 setRequestSuccess(false);
                 setSelectedVehicle("");
                 setQuantity(1);
+                setNote("");
             }, 1200);
         } catch (err) {
             alert("Failed to submit request");
@@ -126,7 +133,7 @@ function RequestVehiclesPage() {
                             >
                                 <option value="" disabled>Select a vehicle</option>
                                 {vehicles.map(v => (
-                                    <option key={v.id} value={v.id}>{v.modelName + " " + v.version}</option>
+                                    <option key={v.id} value={v.id}>{v.modelName ? v.modelName + " " + v.version : v.model_name + " " + v.version}</option>
                                 ))}
                             </select>
                         </div>
@@ -140,6 +147,19 @@ function RequestVehiclesPage() {
                             min={1}
                             required
                         />
+                        <div>
+                            <label htmlFor="note" className="block text-sm font-medium text-slate-300 mb-2">Note (Reason for restock)</label>
+                            <textarea
+                                id="note"
+                                name="note"
+                                className="w-full bg-slate-700 border border-slate-600 rounded-lg text-white px-4 py-3 focus:outline-none resize-none"
+                                rows={3}
+                                value={note}
+                                onChange={e => setNote(e.target.value)}
+                                placeholder="Enter reason for restock..."
+                                required
+                            />
+                        </div>
                         <Modal.Footer>
                             <button
                                 type="button"
