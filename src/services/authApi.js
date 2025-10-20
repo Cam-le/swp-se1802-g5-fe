@@ -68,6 +68,26 @@ export const authApi = {
   },
 
   /**
+   * Get user profile by ID to fetch dealerId
+   * @param {string} userId - User UUID
+   * @returns {Promise} Response with user profile including dealerId
+   */
+  getUserProfile: async (userId) => {
+    try {
+      console.log("📋 Fetching user profile for:", userId);
+      const response = await apiClient.get(`/api/User/${userId}`);
+      console.log("✅ User profile fetched:", {
+        dealerId: response.data?.data?.dealerId,
+        roleId: response.data?.data?.roleId,
+      });
+      return response.data;
+    } catch (error) {
+      console.error("❌ Error fetching user profile:", error);
+      throw error;
+    }
+  },
+
+  /**
    * Logout user (placeholder for future implementation)
    */
   logout: async () => {

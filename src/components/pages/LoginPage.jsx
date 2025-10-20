@@ -23,8 +23,6 @@ function LoginPage() {
 
   const validateForm = () => {
     const newErrors = {};
-
-    // Trim email and password for validation
     const email = formData.email.trim();
     const password = formData.password.trim();
 
@@ -46,15 +44,9 @@ function LoginPage() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
     if (errors[name]) {
-      setErrors((prev) => ({
-        ...prev,
-        [name]: "",
-      }));
+      setErrors((prev) => ({ ...prev, [name]: "" }));
     }
     if (loginError) {
       setLoginError("");
@@ -64,66 +56,50 @@ function LoginPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!validateForm()) {
-      return;
-    }
+    if (!validateForm()) return;
 
     setIsLoading(true);
     setLoginError("");
 
     try {
-      // Call real API
       const response = await authApi.login(formData.email, formData.password);
 
-      // Check if login was successful
       if (response.isSuccess && response.data) {
         const apiData = response.data;
 
-        console.log("✅ Login successful! Processing user data...", {
+        console.log("✅ Login successful!", {
           userId: apiData.userId,
-          email: apiData.email,
-          roleName: apiData.roleName,
           roleId: apiData.roleId,
         });
 
-        // Log the exact API response to see field names
-        console.log("📋 Raw API data:", apiData);
+        // Fetch full user profile to get dealerId
+        let dealerId = null;
+        try {
+          const profileResponse = await authApi.getUserProfile(apiData.userId);
+          if (profileResponse.isSuccess && profileResponse.data) {
+            dealerId = profileResponse.data.dealerId;
+            console.log("📋 Dealer ID:", dealerId);
+          }
+        } catch (profileError) {
+          console.warn("⚠️ Could not fetch dealerId:", profileError);
+        }
 
-        // Map API response to user session structure
-        // Note: API returns 'roleId' (camelCase)
         const userSession = {
           id: apiData.userId,
           email: apiData.email,
           full_name:
             apiData.username || apiData.fullName || apiData.email.split("@")[0],
           role: apiData.roleName,
-          role_id: apiData.roleId, // API uses camelCase 'roleId'
-          dealer_id: apiData.dealerId || null,
+          role_id: apiData.roleId,
+          dealer_id: dealerId,
           dealer_name: null,
         };
 
-        console.log("👤 User session created:", userSession);
-        console.log(
-          "🔑 Role ID extracted:",
-          apiData.roleId,
-          "→",
-          userSession.role_id
-        );
-
-        // Store token, user data, and token expiration
         login(userSession, apiData.token, apiData.tokenExpires);
 
-        console.log("💾 Token and user data stored in localStorage");
-
-        // Navigate to appropriate dashboard
         const route = getDefaultRoute(apiData.roleId);
-        console.log(`🚀 Navigating to: ${route} (Role ID: ${apiData.roleId})`);
-
-        // Use replace to prevent back button issues
         navigate(route, { replace: true });
       } else {
-        // Handle unsuccessful login
-        console.log("❌ Login response indicates failure:", response);
         const errorMessage =
           response.messages?.[0] || "Login failed. Please try again.";
         setLoginError(errorMessage);
@@ -131,7 +107,6 @@ function LoginPage() {
     } catch (error) {
       console.error("Login error:", error);
 
-      // Handle different error types
       if (error.message === "Invalid email or password") {
         setLoginError("Invalid email or password");
       } else if (error.response?.data?.messages?.[0]) {
@@ -181,10 +156,9 @@ function LoginPage() {
           <div className="bg-slate-800 rounded-2xl shadow-2xl p-8 border border-slate-700">
             <h2 className="text-2xl font-semibold text-white mb-6">Sign In</h2>
 
-            {/* Alerts */}
             <Alert type="error" message={loginError} />
 
-            {/* Demo Accounts Info */}
+            {/* Demo Accounts */}
             <div className="mb-6 bg-blue-500 bg-opacity-10 border border-blue-500 rounded-lg p-4">
               <p className="text-blue-400 text-sm font-medium mb-2">
                 Accounts (Password: 12345):
@@ -353,7 +327,6 @@ function LoginPage() {
         </div>
       </div>
 
-      {/* Forgot Password Modal */}
       <ForgotPasswordModal
         isOpen={showForgotPassword}
         onClose={() => setShowForgotPassword(false)}
