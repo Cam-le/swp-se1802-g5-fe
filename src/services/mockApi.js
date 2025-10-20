@@ -6,7 +6,26 @@ import {
   MOCK_ORDERS,
   MOCK_INVENTORY,
   MOCK_APPOINTMENTS,
+  MOCK_VEHICLE_REQUESTS,
 } from "../data/mockData";
+// Vehicle Request API
+export const vehicleRequestApi = {
+  getAll: async () => {
+    await delay();
+    return MOCK_VEHICLE_REQUESTS;
+  },
+  create: async (requestData) => {
+    await delay();
+    const newRequest = {
+      id: "req-" + Date.now(),
+      ...requestData,
+      status: "pending",
+      created_at: new Date().toISOString(),
+    };
+    MOCK_VEHICLE_REQUESTS.push(newRequest);
+    return newRequest;
+  },
+};
 
 // Simulate API delay
 const delay = (ms = 500) => new Promise((resolve) => setTimeout(resolve, ms));

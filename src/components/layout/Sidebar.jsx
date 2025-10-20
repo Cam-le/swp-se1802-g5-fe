@@ -35,6 +35,18 @@ function Sidebar() {
             ),
           },
           {
+            name: "Request Vehicles",
+            path: "/dealer/staff/request-vehicles",
+            icon: (
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 8c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 10c-4.41 0-8-1.79-8-4V6c0-2.21 3.59-4 8-4s8 1.79 8 4v8c0 2.21-3.59 4-8 4z"
+              />
+            ),
+          },
+          {
             name: "Customers",
             path: "/dealer/staff/customers",
             icon: (
@@ -107,6 +119,18 @@ function Sidebar() {
                 strokeLinejoin="round"
                 strokeWidth={2}
                 d="M13 10V3L4 14h7v7l9-11h-7z"
+              />
+            ),
+          },
+          {
+            name: "Request Vehicles",
+            path: "/dealer/manager/request-vehicles",
+            icon: (
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 8c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 10c-4.41 0-8-1.79-8-4V6c0-2.21 3.59-4 8-4s8 1.79 8 4v8c0 2.21-3.59 4-8 4z"
               />
             ),
           },
@@ -423,10 +447,9 @@ function Sidebar() {
             key={item.path}
             to={item.path}
             className={({ isActive }) =>
-              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                isActive
-                  ? "bg-blue-600 text-white"
-                  : "text-slate-300 hover:bg-slate-700 hover:text-white"
+              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
+                ? "bg-blue-600 text-white"
+                : "text-slate-300 hover:bg-slate-700 hover:text-white"
               }`
             }
           >
