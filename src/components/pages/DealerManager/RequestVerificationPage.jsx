@@ -1,122 +1,326 @@
 import { useEffect, useState } from "react";
 import { DashboardLayout } from "../../layout";
-import { Table, Button, Alert, Modal } from "../../common";
-import { vehicleRequestApi } from "../../../services/mockApi";
-import { MOCK_VEHICLES } from "../../../data/mockData";
+import {
+  Table,
+  Button,
+  Alert,
+  Modal,
+  LoadingSpinner,
+  EmptyState,
+  Badge,
+} from "../../common";
+import { vehicleRequestApi } from "../../../services/vehicleRequestApi";
 import { useAuth } from "../../../hooks/useAuth";
+import { formatDateTime } from "../../../utils/helpers";
 
 function RequestVerificationPage() {
-    // Helper to get vehicle name by id
-    const getVehicleName = (id) => {
-        const v = MOCK_VEHICLES.find((veh) => veh.id === id);
-        return v ? `${v.model_name} ${v.version}` : id;
-    };
-    const { user } = useAuth();
-    const [requests, setRequests] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [alert, setAlert] = useState({ type: "", message: "" });
-    const [selectedRequest, setSelectedRequest] = useState(null);
-    const [isModalOpen, setIsModalOpen] = useState(false);
+  const { user } = useAuth();
+  const [requests, setRequests] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [alert, setAlert] = useState({ type: "", message: "" });
+  const [selectedRequest, setSelectedRequest] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isApproving, setIsApproving] = useState(false);
 
-    useEffect(() => {
-        fetchRequests();
-    }, []);
+  useEffect(() => {
+    fetchRequests();
+  }, [user]);
 
-    const fetchRequests = async () => {
-        setLoading(true);
-        try {
-            const allRequests = await vehicleRequestApi.getAll();
-            // Only show requests for this dealer, pending manager verification
-            const filtered = allRequests.filter(
-                (r) => r.dealer_id === user?.dealer_id && r.status === "pending_manager"
-            );
-            setRequests(filtered);
-        } catch (err) {
-            setAlert({ type: "error", message: "Failed to load requests" });
-        } finally {
-            setLoading(false);
-        }
-    };
+  const fetchRequests = async () => {
+    setLoading(true);
+    setAlert({ type: "", message: "" });
+    try {
+      const response = await vehicleRequestApi.getAll();
 
-    const handleVerify = (request) => {
-        setSelectedRequest(request);
-        setIsModalOpen(true);
-    };
+      if (response.isSuccess) {
+        // Filter for pending requests for this dealer (client-side filtering)
+        const allRequests = response.data || [];
+        const filtered = vehicleRequestApi.filters.pendingForManager(
+          allRequests,
+          user?.dealer_id
+        );
+        setRequests(filtered);
+        console.log("Fetched requests for dealer:", {
+          total: allRequests.length,
+          pending: filtered.length,
+          dealerId: user?.dealer_id,
+        });
+      } else {
+        setAlert({
+          type: "error",
+          message: response.messages?.[0] || "Failed to load requests",
+        });
+        setRequests([]);
+      }
+    } catch (error) {
+      console.error("Error fetching requests:", error);
+      setAlert({
+        type: "error",
+        message:
+          error.response?.data?.messages?.[0] || "Failed to load requests",
+      });
+      setRequests([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    const handleApprove = async () => {
-        if (!selectedRequest) return;
-        // Update status to pending_evm
-        selectedRequest.status = "pending_evm";
-        setAlert({ type: "success", message: "Request approved and sent to EVM Staff." });
-        setIsModalOpen(false);
-        setSelectedRequest(null);
-        await fetchRequests();
-    };
+  const handleVerify = (request) => {
+    setSelectedRequest(request);
+    setAlert({ type: "", message: "" });
+    setIsModalOpen(true);
+  };
 
-    const handleReject = async () => {
-        if (!selectedRequest) return;
-        selectedRequest.status = "rejected";
-        setAlert({ type: "warning", message: "Request rejected." });
-        setIsModalOpen(false);
-        setSelectedRequest(null);
-        await fetchRequests();
-    };
+  const handleApprove = async () => {
+    if (!selectedRequest) return;
 
-    return (
-        <DashboardLayout>
-            <div className="mb-6">
-                <h1 className="text-3xl font-bold text-white">Verify Stock Requests</h1>
-                <p className="text-slate-400">Review and verify vehicle stock requests from Dealer Staff before sending to EVM Staff.</p>
+    setIsApproving(true);
+    setAlert({ type: "", message: "" });
+
+    try {
+      // For now, we'll use the logged-in user's ID as evmStaffId
+      // In a real scenario, this should be selected from a list of EVM staff
+      // or assigned by the system
+      const evmStaffId = "bfc5a81a-0c80-4e14-b3c2-01a68e4e8ada"; // TODO: Get from system/selection
+
+      console.log("Approving request:", {
+        requestId: selectedRequest.id,
+        evmStaffId: evmStaffId,
+      });
+
+      const response = await vehicleRequestApi.approve(
+        selectedRequest.id,
+        evmStaffId
+      );
+
+      if (response.isSuccess) {
+        setAlert({
+          type: "success",
+          message:
+            response.messages?.[0] ||
+            "Request approved successfully and sent to EVM Staff!",
+        });
+
+        // Close modal and refresh list after delay
+        setTimeout(() => {
+          setIsModalOpen(false);
+          setSelectedRequest(null);
+          fetchRequests();
+        }, 1500);
+      } else {
+        setAlert({
+          type: "error",
+          message: response.messages?.[0] || "Failed to approve request",
+        });
+      }
+    } catch (error) {
+      console.error("Error approving request:", error);
+      setAlert({
+        type: "error",
+        message:
+          error.response?.data?.messages?.[0] ||
+          "Failed to approve request. Please try again.",
+      });
+    } finally {
+      setIsApproving(false);
+    }
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setSelectedRequest(null);
+    setAlert({ type: "", message: "" });
+  };
+
+  return (
+    <DashboardLayout>
+      <div className="space-y-6">
+        {/* Header */}
+        <div>
+          <h1 className="text-3xl font-bold text-white">
+            Verify Stock Requests
+          </h1>
+          <p className="text-slate-400">
+            Review and verify vehicle stock requests from Dealer Staff before
+            sending to EVM Staff.
+          </p>
+        </div>
+
+        {/* Alert */}
+        <Alert type={alert.type} message={alert.message} />
+
+        {/* Requests Table */}
+        {loading ? (
+          <div className="flex justify-center items-center py-12">
+            <LoadingSpinner size="lg" text="Loading requests..." />
+          </div>
+        ) : requests.length === 0 ? (
+          <EmptyState
+            title="No Pending Requests"
+            description="There are no vehicle restock requests waiting for your approval."
+            icon={
+              <svg
+                className="w-16 h-16 text-slate-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+            }
+          />
+        ) : (
+          <div className="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
+            <Table>
+              <Table.Header>
+                <Table.HeaderCell>Vehicle</Table.HeaderCell>
+                <Table.HeaderCell>Quantity</Table.HeaderCell>
+                <Table.HeaderCell>Requested By</Table.HeaderCell>
+                <Table.HeaderCell>Date</Table.HeaderCell>
+                <Table.HeaderCell>Status</Table.HeaderCell>
+                <Table.HeaderCell align="center">Action</Table.HeaderCell>
+              </Table.Header>
+              <Table.Body>
+                {requests.map((req) => (
+                  <Table.Row key={req.id}>
+                    <Table.Cell>
+                      <div>
+                        <p className="font-semibold text-white">
+                          {req.vehicleModelName || "Unknown Vehicle"}
+                        </p>
+                        <p className="text-sm text-slate-400">
+                          ID: {req.vehicleId?.substring(0, 8)}...
+                        </p>
+                      </div>
+                    </Table.Cell>
+                    <Table.Cell>
+                      <span className="font-semibold text-white">
+                        {req.quantity} units
+                      </span>
+                    </Table.Cell>
+                    <Table.Cell>
+                      <div>
+                        <p className="text-white">
+                          {req.createdByName || "Unknown"}
+                        </p>
+                        <p className="text-sm text-slate-400">
+                          {formatDateTime(req.createdAt)}
+                        </p>
+                      </div>
+                    </Table.Cell>
+                    <Table.Cell>
+                      <span className="text-slate-300">
+                        {formatDateTime(req.createdAt)}
+                      </span>
+                    </Table.Cell>
+                    <Table.Cell>
+                      <Badge variant="warning">{req.status || "Pending"}</Badge>
+                    </Table.Cell>
+                    <Table.Cell align="center">
+                      <Button
+                        onClick={() => handleVerify(req)}
+                        variant="primary"
+                      >
+                        Review
+                      </Button>
+                    </Table.Cell>
+                  </Table.Row>
+                ))}
+              </Table.Body>
+            </Table>
+          </div>
+        )}
+
+        {/* Stats */}
+        {!loading && requests.length > 0 && (
+          <div className="text-sm text-slate-400">
+            Showing {requests.length} pending request(s) for approval
+          </div>
+        )}
+      </div>
+
+      {/* Approval Modal */}
+      <Modal
+        isOpen={isModalOpen}
+        onClose={closeModal}
+        title="Review Restock Request"
+        size="md"
+      >
+        <Alert type={alert.type} message={alert.message} />
+
+        {selectedRequest && (
+          <div className="space-y-4 mb-6">
+            <div className="bg-slate-700 rounded-lg p-4 space-y-3">
+              <div>
+                <p className="text-sm text-slate-400">Vehicle</p>
+                <p className="text-white font-semibold">
+                  {selectedRequest.vehicleModelName || "Unknown Vehicle"}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-slate-400">Quantity Requested</p>
+                <p className="text-white font-semibold">
+                  {selectedRequest.quantity} units
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-slate-400">Requested By</p>
+                <p className="text-white">
+                  {selectedRequest.createdByName || "Unknown"}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-slate-400">Request Date</p>
+                <p className="text-white">
+                  {formatDateTime(selectedRequest.createdAt)}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-slate-400">Reason/Note</p>
+                <p className="text-white">
+                  {selectedRequest.note || (
+                    <span className="italic text-slate-400">
+                      No note provided
+                    </span>
+                  )}
+                </p>
+              </div>
             </div>
-            {alert.message && <Alert type={alert.type}>{alert.message}</Alert>}
-            {loading ? (
-                <div className="text-slate-400">Loading requests...</div>
-            ) : requests.length === 0 ? (
-                <div className="text-slate-400">No pending requests to verify.</div>
-            ) : (
-                <Table>
-                    <thead className="bg-slate-800 text-white">
-                        <tr>
-                            <th>Vehicle</th>
-                            <th>Quantity</th>
-                            <th>Requested By</th>
-                            <th>Date</th>
-                            <th>Note</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody className="text-white">
-                        {requests.map((r) => (
-                            <tr key={r.id}>
-                                <td>{r.modelName ? `${r.modelName} ${r.version}` : r.vehicle_id}</td>
-                                <td>{r.quantity}</td>
-                                <td>{r.requested_by}</td>
-                                <td>{new Date(r.created_at).toLocaleString()}</td>
-                                <td>{r.note || <span className="italic text-slate-400">No note</span>}</td>
-                                <td>
-                                    <Button onClick={() => handleVerify(r)}>Verify</Button>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </Table>
-            )}
 
-            {/* Modal for Approve/Reject */}
-            <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Verify Request">
-                <div className="mb-4">
-                    <p className="text-white">Vehicle: {selectedRequest ? `${selectedRequest.modelName || ""} ${selectedRequest.version || ""}` : ""}</p>
-                    <p className="text-white">Quantity: {selectedRequest?.quantity}</p>
-                    <p className="text-white">Requested By: {selectedRequest?.requested_by}</p>
-                    <p className="text-white">Note: {selectedRequest?.note ? selectedRequest.note : <span className="italic text-slate-400">No note provided</span>}</p>
-                </div>
-                <div className="flex gap-2 justify-end">
-                    <Button variant="secondary" onClick={handleReject}>Reject</Button>
-                    <Button variant="primary" onClick={handleApprove}>Approve</Button>
-                </div>
-            </Modal>
-        </DashboardLayout>
-    );
+            <div className="bg-blue-500 bg-opacity-10 border border-blue-500 rounded-lg p-3">
+              <p className="text-blue-400 text-sm">
+                <strong>Note:</strong> Approving this request will forward it to
+                EVM Staff for processing and fulfillment.
+              </p>
+            </div>
+          </div>
+        )}
+
+        <Modal.Footer>
+          <Button
+            variant="secondary"
+            onClick={closeModal}
+            disabled={isApproving}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="primary"
+            onClick={handleApprove}
+            isLoading={isApproving}
+            disabled={isApproving}
+          >
+            {isApproving ? "Approving..." : "Approve Request"}
+          </Button>
+        </Modal.Footer>
+      </Modal>
+    </DashboardLayout>
+  );
 }
 
 export default RequestVerificationPage;
