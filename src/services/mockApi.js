@@ -19,7 +19,7 @@ export const vehicleRequestApi = {
     const newRequest = {
       id: "req-" + Date.now(),
       ...requestData,
-      status: "pending",
+      status: requestData.status || "pending",
       created_at: new Date().toISOString(),
     };
     MOCK_VEHICLE_REQUESTS.push(newRequest);

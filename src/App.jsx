@@ -26,6 +26,7 @@ import DealerManagerDashboard from "./components/pages/DealerManager/DashboardPa
 import DealerManagerStaffPage from "./components/pages/DealerManager/DealerManagerStaffPage";
 import DealerManagerReportsPage from "./components/pages/DealerManager/DealerManagerReportsPage";
 import DealerManagerPromotionsPage from "./components/pages/DealerManager/DealerManagerPromotionsPage";
+import RequestVerificationPage from "./components/pages/DealerManager/RequestVerificationPage";
 
 // EVM Staff Pages
 import EVMStaffDashboard from "./components/pages/EVMStaff/DashboardPage";
@@ -181,14 +182,6 @@ function App() {
                 </ProtectedRoute>
               }
             />
-            <Route
-              path={ROUTES.DEALER_MANAGER.REQUEST_VEHICLES}
-              element={
-                <ProtectedRoute allowedRoles={[ROLES.DEALER_MANAGER.id]}>
-                  <RequestVehiclesPage />
-                </ProtectedRoute>
-              }
-            />
 
             {/* Dealer Manager Routes */}
             <Route
@@ -262,6 +255,15 @@ function App() {
               element={
                 <ProtectedRoute allowedRoles={[ROLES.DEALER_MANAGER.id]}>
                   <DealerManagerPromotionsPage />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path={ROUTES.DEALER_MANAGER.REQUEST_VERIFICATION}
+              element={
+                <ProtectedRoute allowedRoles={[ROLES.DEALER_MANAGER.id]}>
+                  <RequestVerificationPage />
                 </ProtectedRoute>
               }
             />
