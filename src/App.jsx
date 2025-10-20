@@ -18,6 +18,7 @@ import CustomersPage from "./components/pages/DealerStaff/CustomersPage";
 import AppointmentsPage from "./components/pages/DealerStaff/AppointmentsPage";
 import VehiclesPage from "./components/pages/DealerStaff/VehiclesPage";
 import OrdersPage from "./components/pages/DealerStaff/OrdersPage";
+import RequestVehiclesPage from "./components/pages/DealerStaff/RequestVehiclesPage";
 
 
 // Dealer Manager Pages
@@ -168,6 +169,23 @@ function App() {
               element={
                 <ProtectedRoute allowedRoles={[ROLES.DEALER_STAFF.id]}>
                   <AppointmentsPage />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path={ROUTES.DEALER_STAFF.REQUEST_VEHICLES}
+              element={
+                <ProtectedRoute allowedRoles={[ROLES.DEALER_STAFF.id]}>
+                  <RequestVehiclesPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path={ROUTES.DEALER_MANAGER.REQUEST_VEHICLES}
+              element={
+                <ProtectedRoute allowedRoles={[ROLES.DEALER_MANAGER.id]}>
+                  <RequestVehiclesPage />
                 </ProtectedRoute>
               }
             />

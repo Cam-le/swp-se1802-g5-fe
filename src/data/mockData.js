@@ -199,6 +199,7 @@ export const MOCK_INVENTORY = [
   },
 ];
 
+
 // Mock Appointments Data
 export const MOCK_APPOINTMENTS = [
   {
@@ -218,3 +219,6 @@ export const MOCK_APPOINTMENTS = [
     status: "scheduled",
   },
 ];
+
+// Mock Vehicle Requests Data
+export const MOCK_VEHICLE_REQUESTS = [];

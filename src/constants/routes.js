@@ -12,6 +12,7 @@ export const DEALER_STAFF_ROUTES = {
   CUSTOMERS: "/dealer/staff/customers",
   ORDERS: "/dealer/staff/orders",
   APPOINTMENTS: "/dealer/staff/appointments",
+  REQUEST_VEHICLES: "/dealer/staff/request-vehicles",
 };
 
 // Dealer Manager routes
@@ -25,6 +26,7 @@ export const DEALER_MANAGER_ROUTES = {
   STAFF: "/dealer/manager/staff",
   REPORTS: "/dealer/manager/reports",
   PROMOTIONS: "/dealer/manager/promotions",
+  REQUEST_VEHICLES: "/dealer/manager/request-vehicles",
 };
 
 // EVM Staff routes
