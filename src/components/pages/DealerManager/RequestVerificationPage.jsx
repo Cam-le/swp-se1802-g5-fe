@@ -92,8 +92,8 @@ function RequestVerificationPage() {
     return variants[status] || "default";
   };
 
-  const pendingRequests = requests.filter((r) => r.status === "pending");
-  const otherRequests = requests.filter((r) => r.status !== "pending");
+  const pendingRequests = requests.filter((r) => r.status === "Processing");
+  const otherRequests = requests.filter((r) => r.status !== "Processing");
 
   return (
     <DashboardLayout>
