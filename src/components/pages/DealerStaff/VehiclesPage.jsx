@@ -415,106 +415,66 @@ function VehiclesPage() {
               }
             />
           ) : (
-            <Table>
-              <Table.Header>
-                <Table.HeaderCell>Vehicle</Table.HeaderCell>
-                <Table.HeaderCell>Category</Table.HeaderCell>
-                <Table.HeaderCell>Battery & Range</Table.HeaderCell>
-                <Table.HeaderCell align="right">Base Price</Table.HeaderCell>
-                <Table.HeaderCell align="center">In Stock</Table.HeaderCell>
-                <Table.HeaderCell>Status</Table.HeaderCell>
-                <Table.HeaderCell align="center">Actions</Table.HeaderCell>
-              </Table.Header>
-              <Table.Body>
-                {filteredVehicles.map((vehicle) => (
-                  <Table.Row key={vehicle.id}>
-                    {/* Vehicle Info with Image */}
-                    <Table.Cell>
-                      <div className="flex items-center gap-3">
-                        <img
-                          src={vehicle.imageUrl}
-                          alt={vehicle.modelName}
-                          className="w-16 h-16 rounded-lg object-cover bg-slate-700"
-                          onError={(e) => {
-                            e.target.src =
-                              "https://via.placeholder.com/150?text=No+Image";
-                          }}
-                        />
-                        <div>
-                          <p className="font-semibold text-white">
-                            {vehicle.modelName}
-                          </p>
-                          <p className="text-sm text-slate-400">
-                            {vehicle.version}
-                          </p>
-                        </div>
-                      </div>
-                    </Table.Cell>
-
-                    {/* Category */}
-                    <Table.Cell>
-                      <span className="text-slate-300">{vehicle.category}</span>
-                    </Table.Cell>
-
-                    {/* Battery & Range */}
-                    <Table.Cell>
-                      <div className="text-sm">
-                        <p className="text-slate-300">
-                          {vehicle.batteryCapacity} kWh
-                        </p>
-                        <p className="text-slate-500">
-                          {vehicle.rangePerCharge} km
-                        </p>
-                      </div>
-                    </Table.Cell>
-
-                    {/* Price */}
-                    <Table.Cell align="right">
-                      <span className="font-semibold text-white">
-                        {formatCurrency(vehicle.basePrice)}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {filteredVehicles.map((vehicle) => (
+                <div
+                  key={vehicle.id}
+                  className="bg-slate-800 rounded-xl border border-slate-700 p-6 flex flex-col w-full max-w-[420px] mx-auto transition-transform transition-shadow duration-200 ease-in-out hover:shadow-2xl hover:-translate-y-2 hover:scale-105"
+                >
+                  <img
+                    src={vehicle.imageUrl}
+                    alt={vehicle.modelName}
+                    className="w-full h-32 object-cover rounded mb-2 bg-slate-700"
+                    onError={(e) => {
+                      e.target.src = "https://via.placeholder.com/320x240?text=No+Image";
+                    }}
+                  />
+                  <div className="flex flex-col gap-1 mb-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg font-bold text-white">{vehicle.modelName}</span>
+                      <span className="text-base text-slate-400">- {vehicle.version}</span>
+                    </div>
+                    <div className="text-sm text-slate-300 mb-1">{vehicle.description}</div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1 mb-1">
+                    <div>
+                      <span className="text-xs text-slate-400">Range:</span>
+                      <span className="font-semibold text-white ml-1">{vehicle.rangePerCharge} km</span>
+                    </div>
+                    <div>
+                      <span className="text-xs text-slate-400">Battery:</span>
+                      <span className="font-semibold text-white ml-1">{vehicle.batteryCapacity} kWh</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between mb-1">
+                    <div>
+                      <span className="text-xs text-slate-400">Status:</span>
+                      <span className="font-semibold ml-1">
+                        <Badge variant={getStatusVariant(vehicle.status)}>{vehicle.status}</Badge>
                       </span>
-                    </Table.Cell>
-
-                    {/* Stock */}
-                    <Table.Cell align="center">
-                      <Badge variant={getStockVariant(vehicle.currentStock)}>
-                        {vehicle.currentStock} units
-                      </Badge>
-                    </Table.Cell>
-
-                    {/* Status */}
-                    <Table.Cell>
-                      <Badge variant={getStatusVariant(vehicle.status)}>
-                        {vehicle.status}
-                      </Badge>
-                    </Table.Cell>
-
-                    {/* Actions */}
-                    <Table.Cell align="center">
-                      <button
-                        onClick={() => openEditModal(vehicle)}
-                        className="text-blue-400 hover:text-blue-300 transition-colors"
-                        title="Edit vehicle"
-                      >
-                        <svg
-                          className="w-5 h-5"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                          />
-                        </svg>
-                      </button>
-                    </Table.Cell>
-                  </Table.Row>
-                ))}
-              </Table.Body>
-            </Table>
+                    </div>
+                    <div>
+                      <span className="text-xs text-slate-400">Stock:</span>
+                      <span className="font-semibold ml-1">
+                        <Badge variant={getStockVariant(vehicle.currentStock)}>{vehicle.currentStock}</Badge>
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xs text-slate-400">Launch Date:</span>
+                    <span className="font-semibold text-white">{vehicle.launchDate ? formatShortDate(vehicle.launchDate) : '-'}</span>
+                  </div>
+                  <div className="text-lg font-bold text-orange-400 mb-2">
+                    {formatCurrency(vehicle.basePrice)}
+                  </div>
+                  <div className="flex gap-2 mt-auto">
+                    <Button variant="primary" className="w-full" onClick={() => openEditModal(vehicle)}>
+                      Edit
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
           )}
         </Card>
 
@@ -632,9 +592,8 @@ function VehiclesPage() {
                 value={formData.description}
                 onChange={handleInputChange}
                 rows={3}
-                className={`w-full px-4 py-3 bg-slate-700 border ${
-                  formErrors.description ? "border-red-500" : "border-slate-600"
-                } rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition`}
+                className={`w-full px-4 py-3 bg-slate-700 border ${formErrors.description ? "border-red-500" : "border-slate-600"
+                  } rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition`}
                 placeholder="Enter vehicle description..."
               />
               {formErrors.description && (
