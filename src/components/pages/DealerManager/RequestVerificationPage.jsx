@@ -10,7 +10,7 @@ function RequestVerificationPage() {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [alert, setAlert] = useState({ type: "", message: "" });
-  const [approvingId, setApprovingId] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
 
   useEffect(() => {
     if (user?.dealer_id) {
@@ -47,47 +47,52 @@ function RequestVerificationPage() {
     }
   };
 
-  const handleApprove = async (requestId) => {
+  const handleDelete = async (requestId) => {
+    if (
+      !window.confirm(
+        "Are you sure you want to deny this request? This action cannot be undone."
+      )
+    ) {
+      return;
+    }
+
     try {
-      setApprovingId(requestId);
+      setDeletingId(requestId);
       setAlert({ type: "", message: "" });
 
-      // Use placeholder EVM staff ID - backend will handle assignment
-      const evmStaffId = "00000000-0000-0000-0000-000000000000";
-
-      const response = await vehicleRequestApi.approve(requestId, evmStaffId);
+      const response = await vehicleRequestApi.delete(requestId);
 
       if (response.isSuccess) {
         setAlert({
           type: "success",
-          message: "Request approved successfully!",
+          message: "Request denied successfully!",
         });
         // Refresh the list
         fetchRequests();
       } else {
         setAlert({
           type: "error",
-          message: response.messages?.[0] || "Failed to approve request",
+          message: response.messages?.[0] || "Failed to deny request",
         });
       }
     } catch (error) {
-      console.error("Error approving request:", error);
+      console.error("Error denying request:", error);
       setAlert({
         type: "error",
         message:
-          error.response?.data?.messages?.[0] || "Failed to approve request",
+          error.response?.data?.messages?.[0] || "Failed to deny request",
       });
     } finally {
-      setApprovingId(null);
+      setDeletingId(null);
     }
   };
 
   const getStatusBadge = (status) => {
     const variants = {
-      pending: "warning",
-      approved: "info",
-      fulfilled: "success",
-      rejected: "danger",
+      Pending: "warning",
+      Processing: "info",
+      Completed: "success",
+      Rejected: "danger",
     };
     return variants[status] || "default";
   };
@@ -99,10 +104,10 @@ function RequestVerificationPage() {
     <DashboardLayout>
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-white">
-          Verify Vehicle Requests
+          Manage Vehicle Requests
         </h1>
         <p className="text-slate-400">
-          Review and approve restock requests from your staff
+          Review and manage restock requests from your staff
         </p>
       </div>
 
@@ -117,12 +122,12 @@ function RequestVerificationPage() {
           {/* Pending Requests */}
           <div className="mb-8">
             <h2 className="text-xl font-semibold text-white mb-4">
-              Pending Approval ({pendingRequests.length})
+              Pending Requests ({pendingRequests.length})
             </h2>
             {pendingRequests.length === 0 ? (
               <Card>
                 <p className="text-slate-400 text-center py-8">
-                  No pending requests to review
+                  No pending requests
                 </p>
               </Card>
             ) : (
@@ -144,7 +149,13 @@ function RequestVerificationPage() {
                     <div className="space-y-2 text-sm">
                       <div className="text-slate-300">
                         Vehicle:{" "}
-                        <span className="text-white">
+                        <span className="text-white font-semibold">
+                          {req.vehicleModelName || "Unknown"}
+                        </span>
+                      </div>
+                      <div className="text-slate-300">
+                        Vehicle ID:{" "}
+                        <span className="text-white font-mono text-xs">
                           {req.vehicleId?.substring(0, 8)}...
                         </span>
                       </div>
@@ -152,6 +163,12 @@ function RequestVerificationPage() {
                         Quantity:{" "}
                         <span className="text-white font-semibold">
                           {req.quantity}
+                        </span>
+                      </div>
+                      <div className="text-slate-300">
+                        Created by:{" "}
+                        <span className="text-white">
+                          {req.createdByName || "Unknown"}
                         </span>
                       </div>
                       {req.note && (
@@ -164,14 +181,15 @@ function RequestVerificationPage() {
                       </div>
                     </div>
 
-                    <div className="mt-4 flex gap-2">
+                    <div className="mt-4">
                       <Button
-                        onClick={() => handleApprove(req.id)}
-                        disabled={approvingId === req.id}
-                        isLoading={approvingId === req.id}
+                        variant="warning"
+                        onClick={() => handleDelete(req.id)}
+                        disabled={deletingId === req.id}
+                        isLoading={deletingId === req.id}
                         fullWidth
                       >
-                        Approve
+                        {deletingId === req.id ? "Denying..." : "Deny Request"}
                       </Button>
                     </div>
                   </Card>
@@ -208,6 +226,12 @@ function RequestVerificationPage() {
                     </div>
 
                     <div className="space-y-2 text-sm">
+                      <div className="text-slate-300">
+                        Vehicle:{" "}
+                        <span className="text-white">
+                          {req.vehicleModelName || "Unknown"}
+                        </span>
+                      </div>
                       <div className="text-slate-300">
                         Quantity:{" "}
                         <span className="text-white">{req.quantity}</span>

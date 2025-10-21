@@ -7,14 +7,21 @@ import {
   Badge,
   Card,
   Alert,
+  Button,
+  Modal,
 } from "../../common";
+import { useAuth } from "../../../hooks/useAuth";
 import { vehicleRequestApi } from "../../../services/vehicleRequestApi";
 import { formatDateTime } from "../../../utils/helpers";
 
 function VehicleRequestsPage() {
+  const { user } = useAuth();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [alert, setAlert] = useState({ type: "", message: "" });
+  const [approvingId, setApprovingId] = useState(null);
+  const [selectedRequest, setSelectedRequest] = useState(null);
+  const [showApproveModal, setShowApproveModal] = useState(false);
 
   useEffect(() => {
     fetchRequests();
@@ -49,6 +56,56 @@ function VehicleRequestsPage() {
       setRequests([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleApprove = async (request) => {
+    setSelectedRequest(request);
+    setShowApproveModal(true);
+  };
+
+  const confirmApprove = async () => {
+    if (!selectedRequest || !user?.id) {
+      setAlert({
+        type: "error",
+        message: "Missing required information to approve request",
+      });
+      return;
+    }
+
+    try {
+      setApprovingId(selectedRequest.id);
+      setAlert({ type: "", message: "" });
+
+      const response = await vehicleRequestApi.approve(
+        selectedRequest.id,
+        user.id // Current EVM Staff user ID
+      );
+
+      if (response.isSuccess) {
+        setAlert({
+          type: "success",
+          message: "Request approved successfully!",
+        });
+        setShowApproveModal(false);
+        setSelectedRequest(null);
+        // Refresh the list
+        fetchRequests();
+      } else {
+        setAlert({
+          type: "error",
+          message: response.messages?.[0] || "Failed to approve request",
+        });
+      }
+    } catch (error) {
+      console.error("Error approving request:", error);
+      setAlert({
+        type: "error",
+        message:
+          error.response?.data?.messages?.[0] || "Failed to approve request",
+      });
+    } finally {
+      setApprovingId(null);
     }
   };
 
@@ -88,6 +145,9 @@ function VehicleRequestsPage() {
   };
 
   const statusCounts = getStatusCounts();
+  const processingRequests = requests.filter(
+    (req) => req.status === "Processing"
+  );
 
   return (
     <DashboardLayout>
@@ -96,7 +156,7 @@ function VehicleRequestsPage() {
         <div>
           <h1 className="text-3xl font-bold text-white">Vehicle Requests</h1>
           <p className="text-slate-400">
-            View and manage all dealer vehicle allocation requests
+            Review and approve dealer vehicle allocation requests
           </p>
         </div>
 
@@ -132,7 +192,7 @@ function VehicleRequestsPage() {
             <Card>
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-slate-400">Processing</p>
+                  <p className="text-sm text-slate-400">Awaiting Approval</p>
                   <p className="text-2xl font-bold text-white mt-1">
                     {statusCounts.processing}
                   </p>
@@ -241,103 +301,158 @@ function VehicleRequestsPage() {
             }
           />
         ) : (
-          <div className="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
-            <Table>
-              <Table.Header>
-                <Table.HeaderCell>Request ID</Table.HeaderCell>
-                <Table.HeaderCell>Vehicle</Table.HeaderCell>
-                <Table.HeaderCell>Quantity</Table.HeaderCell>
-                <Table.HeaderCell>Dealer</Table.HeaderCell>
-                <Table.HeaderCell>Requested By</Table.HeaderCell>
-                <Table.HeaderCell>Created</Table.HeaderCell>
-                <Table.HeaderCell>Approved By</Table.HeaderCell>
-                <Table.HeaderCell>Status</Table.HeaderCell>
-                <Table.HeaderCell>Note</Table.HeaderCell>
-              </Table.Header>
-              <Table.Body>
-                {requests.map((req) => (
-                  <Table.Row key={req.id}>
-                    <Table.Cell>
-                      <span className="text-slate-400 font-mono text-xs">
-                        {req.id?.substring(0, 8)}...
-                      </span>
-                    </Table.Cell>
-                    <Table.Cell>
-                      <p className="font-semibold text-white">
-                        {req.vehicleModelName || "Unknown Vehicle"}
-                      </p>
-                      <p className="text-xs text-slate-400 font-mono">
-                        {req.vehicleId?.substring(0, 8)}...
-                      </p>
-                    </Table.Cell>
-                    <Table.Cell>
-                      <span className="font-semibold text-white">
-                        {req.quantity} units
-                      </span>
-                    </Table.Cell>
-                    <Table.Cell>
-                      <div>
-                        <p className="text-white">
-                          {req.dealerName || "Unknown Dealer"}
-                        </p>
-                        <p className="text-xs text-slate-400 font-mono">
-                          {req.dealerId?.substring(0, 8)}...
-                        </p>
-                      </div>
-                    </Table.Cell>
-                    <Table.Cell>
-                      <div>
-                        <p className="text-white">
-                          {req.createdByName || "Unknown"}
-                        </p>
-                        <p className="text-xs text-slate-400 font-mono">
-                          {req.createdBy?.substring(0, 8)}...
-                        </p>
-                      </div>
-                    </Table.Cell>
-                    <Table.Cell>
-                      <span className="text-slate-300 text-sm">
-                        {formatDateTime(req.createdAt)}
-                      </span>
-                    </Table.Cell>
-                    <Table.Cell>
-                      {req.approvedBy ? (
-                        <div>
-                          <p className="text-white text-sm">
-                            {req.approvedByName || "Unknown"}
+          <div className="bg-slate-800 rounded-lg border border-slate-700">
+            <div className="overflow-x-auto">
+              <Table>
+                <Table.Header>
+                  <Table.HeaderCell>Request Details</Table.HeaderCell>
+                  <Table.HeaderCell>Vehicle & Quantity</Table.HeaderCell>
+                  <Table.HeaderCell>Dealer Info</Table.HeaderCell>
+                  <Table.HeaderCell>Status</Table.HeaderCell>
+                  <Table.HeaderCell>Actions</Table.HeaderCell>
+                </Table.Header>
+                <Table.Body>
+                  {requests.map((req) => (
+                    <Table.Row key={req.id}>
+                      <Table.Cell>
+                        <div className="space-y-1">
+                          <p className="text-slate-400 font-mono text-xs">
+                            {req.id?.substring(0, 8)}...
                           </p>
-                          {req.approvedAt && (
-                            <p className="text-xs text-slate-400">
-                              {formatDateTime(req.approvedAt)}
+                          <p className="text-xs text-slate-400">
+                            {formatDateTime(req.createdAt)}
+                          </p>
+                          {req.note && (
+                            <p className="text-xs text-slate-300 italic">
+                              "{req.note}"
                             </p>
                           )}
                         </div>
-                      ) : (
-                        <span className="text-slate-500 italic text-sm">-</span>
-                      )}
-                    </Table.Cell>
-                    <Table.Cell>
-                      <Badge variant={getStatusVariant(req.status)}>
-                        {req.status || "Unknown"}
-                      </Badge>
-                    </Table.Cell>
-                    <Table.Cell>
-                      {req.note ? (
-                        <span className="text-slate-300 text-sm">
-                          {req.note}
-                        </span>
-                      ) : (
-                        <span className="text-slate-500 italic text-sm">
-                          No note
-                        </span>
-                      )}
-                    </Table.Cell>
-                  </Table.Row>
-                ))}
-              </Table.Body>
-            </Table>
+                      </Table.Cell>
+                      <Table.Cell>
+                        <div className="space-y-1">
+                          <p className="font-semibold text-white">
+                            {req.vehicleModelName || "Unknown Vehicle"}
+                          </p>
+                          <p className="text-sm text-blue-400 font-semibold">
+                            {req.quantity} units
+                          </p>
+                        </div>
+                      </Table.Cell>
+                      <Table.Cell>
+                        <div className="space-y-1">
+                          <p className="text-white font-medium">
+                            {req.dealerName || "Unknown Dealer"}
+                          </p>
+                          <p className="text-xs text-slate-400">
+                            By: {req.createdByName || "Unknown"}
+                          </p>
+                        </div>
+                      </Table.Cell>
+                      <Table.Cell>
+                        <Badge variant={getStatusVariant(req.status)}>
+                          {req.status || "Unknown"}
+                        </Badge>
+                      </Table.Cell>
+                      <Table.Cell>
+                        {req.status === "Processing" && (
+                          <Button
+                            onClick={() => handleApprove(req)}
+                            disabled={approvingId === req.id}
+                            variant="primary"
+                          >
+                            Approve
+                          </Button>
+                        )}
+                        {req.status === "Completed" && (
+                          <span className="text-green-400 text-sm">
+                            ✓ Completed
+                          </span>
+                        )}
+                      </Table.Cell>
+                    </Table.Row>
+                  ))}
+                </Table.Body>
+              </Table>
+            </div>
           </div>
         )}
+
+        {/* Approve Confirmation Modal */}
+        <Modal
+          isOpen={showApproveModal}
+          onClose={() => {
+            setShowApproveModal(false);
+            setSelectedRequest(null);
+          }}
+          title="Approve Vehicle Request"
+          size="md"
+        >
+          {selectedRequest && (
+            <div className="space-y-4">
+              <div className="bg-slate-700 rounded-lg p-4 space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Request ID:</span>
+                  <span className="text-white font-mono text-sm">
+                    {selectedRequest.id?.substring(0, 8)}...
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Vehicle:</span>
+                  <span className="text-white font-semibold">
+                    {selectedRequest.vehicleModelName || "Unknown"}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Quantity:</span>
+                  <span className="text-white font-semibold">
+                    {selectedRequest.quantity} units
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Dealer:</span>
+                  <span className="text-white">
+                    {selectedRequest.dealerName || "Unknown"}
+                  </span>
+                </div>
+                {selectedRequest.note && (
+                  <div className="pt-2 border-t border-slate-600">
+                    <span className="text-slate-400 text-sm">Note:</span>
+                    <p className="text-white mt-1">{selectedRequest.note}</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-blue-500 bg-opacity-10 border border-blue-500 rounded-lg p-3">
+                <p className="text-blue-400 text-sm">
+                  ⓘ By approving this request, you confirm that the vehicles
+                  will be allocated to the dealer's inventory.
+                </p>
+              </div>
+
+              <Modal.Footer>
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    setShowApproveModal(false);
+                    setSelectedRequest(null);
+                  }}
+                  disabled={approvingId}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  onClick={confirmApprove}
+                  isLoading={approvingId === selectedRequest.id}
+                  disabled={approvingId === selectedRequest.id}
+                >
+                  Confirm Approval
+                </Button>
+              </Modal.Footer>
+            </div>
+          )}
+        </Modal>
       </div>
     </DashboardLayout>
   );

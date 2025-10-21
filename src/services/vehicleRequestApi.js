@@ -51,7 +51,7 @@ export const vehicleRequestApi = {
   },
 
   /**
-   * Approve vehicle request (Dealer Manager approves)
+   * Approve vehicle request (EVM Staff approves)
    * @param {string} requestId - Request UUID
    * @param {string} evmStaffId - EVM Staff UUID who will handle the request
    * @returns {Promise} Response with approved request
@@ -66,6 +66,25 @@ export const vehicleRequestApi = {
       return response.data; // Returns { data: {...}, resultStatus: 0, messages: [...], isSuccess: true }
     } catch (error) {
       console.error("Error approving vehicle request:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Delete vehicle request (Dealer Manager deletes/rejects)
+   * @param {string} requestId - Request UUID
+   * @returns {Promise} Response confirming deletion
+   */
+  delete: async (requestId) => {
+    try {
+      console.log("Deleting vehicle request:", requestId);
+      const response = await apiClient.delete(
+        `/api/VehicleRequest/${requestId}`
+      );
+      console.log("Vehicle request deleted successfully:", response.data);
+      return response.data; // Returns { data: {...}, resultStatus: 0, messages: [...], isSuccess: true }
+    } catch (error) {
+      console.error("Error deleting vehicle request:", error);
       throw error;
     }
   },
@@ -100,7 +119,7 @@ export const vehicleRequestApi = {
      */
     pendingForManager: (requests, dealerId) => {
       return requests.filter(
-        (req) => req.dealerId === dealerId && req.status === "pending"
+        (req) => req.dealerId === dealerId && req.status === "Processing"
       );
     },
 
@@ -108,7 +127,7 @@ export const vehicleRequestApi = {
      * Get approved requests for EVM Staff to process
      */
     approvedForEVM: (requests) => {
-      return requests.filter((req) => req.status === "approved");
+      return requests.filter((req) => req.status === "Processing");
     },
   },
 };
