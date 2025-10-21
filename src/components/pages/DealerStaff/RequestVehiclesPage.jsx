@@ -18,9 +18,8 @@ function RequestVehiclesPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [alert, setAlert] = useState({ type: "", message: "" });
 
-  // Only allow Dealer Staff and Dealer Manager
-  const canRequest =
-    user?.role === "Dealer Staff" || user?.role === "Dealer Manager";
+  // Only allow Dealer Staff
+  const canRequest = user?.role === "Dealer Staff";
 
   // Fetch vehicles on mount
   useEffect(() => {
@@ -145,8 +144,7 @@ function RequestVehiclesPage() {
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-white">Request Vehicles</h1>
         <p className="text-slate-400">
-          Dealer Staff and Dealer Manager can request additional stock for
-          available cars.
+          Request additional stock for available cars
         </p>
       </div>
 
