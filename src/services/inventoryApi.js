@@ -6,8 +6,38 @@ import apiClient from "./apiClient";
  */
 export const inventoryApi = {
   /**
-   * Add inventory for a vehicle (EVM Staff fulfills request)
-   * This endpoint creates inventory items with auto-generated VIN numbers
+   * Get all inventory items
+   * @returns {Promise} Response with array of inventory items
+   */
+  getAll: async () => {
+    try {
+      const response = await apiClient.get("/api/Inventory");
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching inventory:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get available stock quantity for a specific vehicle
+   * @param {string} vehicleId - Vehicle UUID
+   * @returns {Promise} Response with available stock count
+   */
+  getAvailableStock: async (vehicleId) => {
+    try {
+      const response = await apiClient.get(
+        `/api/Inventory/available-stock-quantity/${vehicleId}`
+      );
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching available stock:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Add inventory for a vehicle (EVM Staff adds manufacturer stock)
    * @param {string} vehicleId - Vehicle UUID
    * @param {number} quantity - Number of vehicles to add to inventory
    * @returns {Promise} Response with created inventory items
@@ -25,35 +55,9 @@ export const inventoryApi = {
         requestBody
       );
       console.log("Inventory added successfully:", response.data);
-      return response.data; // Returns { data: [...], resultStatus: 0, messages: [...], isSuccess: true }
+      return response.data;
     } catch (error) {
       console.error("Error adding inventory:", error);
-      throw error;
-    }
-  },
-
-  /**
-   * Helper to fulfill multiple vehicle requests at once
-   * @param {Array} requests - Array of vehicle requests to fulfill
-   * @returns {Promise} Array of results
-   */
-  fulfillRequests: async (requests) => {
-    try {
-      const results = [];
-      for (const request of requests) {
-        const result = await inventoryApi.addInventory(
-          request.vehicleId,
-          request.quantity
-        );
-        results.push({
-          requestId: request.id,
-          vehicleId: request.vehicleId,
-          result: result,
-        });
-      }
-      return results;
-    } catch (error) {
-      console.error("Error fulfilling requests:", error);
       throw error;
     }
   },

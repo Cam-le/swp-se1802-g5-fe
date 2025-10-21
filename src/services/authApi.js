@@ -6,6 +6,26 @@ import apiClient from "./apiClient";
  */
 export const authApi = {
   /**
+   * Get user details by ID
+   * @param {string} userId - User UUID
+   * @returns {Promise} Response with detailed user data including dealerId
+   */
+  getUserDetails: async (userId) => {
+    try {
+      console.log("📋 Fetching user details for:", userId);
+      const response = await apiClient.get(`/api/User/${userId}`);
+      console.log("✅ User details fetched:", {
+        dealerId: response.data?.data?.dealerId,
+        fullName: response.data?.data?.fullName,
+      });
+      return response.data;
+    } catch (error) {
+      console.error("❌ Error fetching user details:", error);
+      throw error;
+    }
+  },
+
+  /**
    * Login user
    * @param {string} email - User email
    * @param {string} password - User password
@@ -63,26 +83,6 @@ export const authApi = {
         );
       }
 
-      throw error;
-    }
-  },
-
-  /**
-   * Get user profile by ID to fetch dealerId
-   * @param {string} userId - User UUID
-   * @returns {Promise} Response with user profile including dealerId
-   */
-  getUserProfile: async (userId) => {
-    try {
-      console.log("📋 Fetching user profile for:", userId);
-      const response = await apiClient.get(`/api/User/${userId}`);
-      console.log("✅ User profile fetched:", {
-        dealerId: response.data?.data?.dealerId,
-        roleId: response.data?.data?.roleId,
-      });
-      return response.data;
-    } catch (error) {
-      console.error("❌ Error fetching user profile:", error);
       throw error;
     }
   },

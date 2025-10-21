@@ -23,6 +23,8 @@ function LoginPage() {
 
   const validateForm = () => {
     const newErrors = {};
+
+    // Trim email and password for validation
     const email = formData.email.trim();
     const password = formData.password.trim();
 
@@ -44,9 +46,15 @@ function LoginPage() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
     if (errors[name]) {
-      setErrors((prev) => ({ ...prev, [name]: "" }));
+      setErrors((prev) => ({
+        ...prev,
+        [name]: "",
+      }));
     }
     if (loginError) {
       setLoginError("");
@@ -56,57 +64,99 @@ function LoginPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!validateForm()) return;
+    if (!validateForm()) {
+      return;
+    }
 
     setIsLoading(true);
     setLoginError("");
 
     try {
-      const response = await authApi.login(formData.email, formData.password);
+      // Step 1: Login to get basic user info and token
+      const loginResponse = await authApi.login(
+        formData.email,
+        formData.password
+      );
 
-      if (response.isSuccess && response.data) {
-        const apiData = response.data;
+      if (loginResponse.isSuccess && loginResponse.data) {
+        const loginData = loginResponse.data;
 
-        console.log("✅ Login successful!", {
-          userId: apiData.userId,
-          roleId: apiData.roleId,
+        console.log("✅ Login successful! Processing user data...", {
+          userId: loginData.userId,
+          email: loginData.email,
+          roleName: loginData.roleName,
+          roleId: loginData.roleId,
         });
 
-        // Fetch full user profile to get dealerId
-        let dealerId = null;
-        try {
-          const profileResponse = await authApi.getUserProfile(apiData.userId);
-          if (profileResponse.isSuccess && profileResponse.data) {
-            dealerId = profileResponse.data.dealerId;
-            console.log("📋 Dealer ID:", dealerId);
-          }
-        } catch (profileError) {
-          console.warn("⚠️ Could not fetch dealerId:", profileError);
+        // Step 2: Fetch full user details to get dealerId
+        console.log("📋 Fetching detailed user information...");
+        const userDetailsResponse = await authApi.getUserDetails(
+          loginData.userId
+        );
+
+        if (userDetailsResponse.isSuccess && userDetailsResponse.data) {
+          const userDetails = userDetailsResponse.data;
+
+          console.log("✅ User details fetched successfully:", {
+            dealerId: userDetails.dealerId,
+            fullName: userDetails.fullName,
+          });
+
+          // Map API response to user session structure
+          const userSession = {
+            id: loginData.userId,
+            email: loginData.email,
+            full_name:
+              userDetails.fullName ||
+              loginData.username ||
+              loginData.email.split("@")[0],
+            role: loginData.roleName,
+            role_id: loginData.roleId,
+            dealer_id: userDetails.dealerId || null,
+            dealer_name: null, // You can fetch dealer name separately if needed
+            phone: userDetails.phone || null,
+          };
+
+          console.log("👤 Complete user session created:", {
+            ...userSession,
+            dealer_id: userSession.dealer_id
+              ? `${userSession.dealer_id.substring(0, 8)}...`
+              : null,
+          });
+
+          // Store token, user data, and token expiration
+          login(userSession, loginData.token, loginData.tokenExpires);
+
+          console.log("💾 Token and user data stored in localStorage");
+
+          // Navigate to appropriate dashboard
+          const route = getDefaultRoute(loginData.roleId);
+          console.log(
+            `🚀 Navigating to: ${route} (Role ID: ${loginData.roleId})`
+          );
+
+          // Use replace to prevent back button issues
+          navigate(route, { replace: true });
+        } else {
+          console.error(
+            "❌ Failed to fetch user details:",
+            userDetailsResponse
+          );
+          setLoginError(
+            userDetailsResponse.messages?.[0] ||
+              "Failed to load user information"
+          );
         }
-
-        const userSession = {
-          id: apiData.userId,
-          email: apiData.email,
-          full_name:
-            apiData.username || apiData.fullName || apiData.email.split("@")[0],
-          role: apiData.roleName,
-          role_id: apiData.roleId,
-          dealer_id: dealerId,
-          dealer_name: null,
-        };
-
-        login(userSession, apiData.token, apiData.tokenExpires);
-
-        const route = getDefaultRoute(apiData.roleId);
-        navigate(route, { replace: true });
       } else {
+        console.log("❌ Login response indicates failure:", loginResponse);
         const errorMessage =
-          response.messages?.[0] || "Login failed. Please try again.";
+          loginResponse.messages?.[0] || "Login failed. Please try again.";
         setLoginError(errorMessage);
       }
     } catch (error) {
       console.error("Login error:", error);
 
+      // Handle different error types
       if (error.message === "Invalid email or password") {
         setLoginError("Invalid email or password");
       } else if (error.response?.data?.messages?.[0]) {
@@ -156,9 +206,10 @@ function LoginPage() {
           <div className="bg-slate-800 rounded-2xl shadow-2xl p-8 border border-slate-700">
             <h2 className="text-2xl font-semibold text-white mb-6">Sign In</h2>
 
+            {/* Alerts */}
             <Alert type="error" message={loginError} />
 
-            {/* Demo Accounts */}
+            {/* Demo Accounts Info */}
             <div className="mb-6 bg-blue-500 bg-opacity-10 border border-blue-500 rounded-lg p-4">
               <p className="text-blue-400 text-sm font-medium mb-2">
                 Accounts (Password: 12345):
@@ -327,6 +378,7 @@ function LoginPage() {
         </div>
       </div>
 
+      {/* Forgot Password Modal */}
       <ForgotPasswordModal
         isOpen={showForgotPassword}
         onClose={() => setShowForgotPassword(false)}
