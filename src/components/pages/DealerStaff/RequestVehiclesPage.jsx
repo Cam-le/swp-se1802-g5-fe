@@ -1,322 +1,339 @@
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import { DashboardLayout } from "../../layout";
-import {
-  Table,
-  Button,
-  Alert,
-  Modal,
-  LoadingSpinner,
-  EmptyState,
-  Badge,
-} from "../../common";
-import { vehicleRequestApi } from "../../../services/vehicleRequestApi";
+import { Card, Modal, Alert, LoadingSpinner, Button } from "../../common";
+import InputField from "../../common/InputField";
 import { useAuth } from "../../../hooks/useAuth";
-import { formatDateTime } from "../../../utils/helpers";
 
-function RequestVerificationPage() {
+import { vehicleApi } from "../../../services/vehicleApi";
+import { vehicleRequestApi } from "../../../services/vehicleRequestApi";
+
+function RequestVehiclesPage() {
   const { user } = useAuth();
-  const [requests, setRequests] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [alert, setAlert] = useState({ type: "", message: "" });
-  const [selectedRequest, setSelectedRequest] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isApproving, setIsApproving] = useState(false);
+  const [selectedVehicle, setSelectedVehicle] = useState("");
+  const [quantity, setQuantity] = useState(1);
+  const [note, setNote] = useState("");
+  const [vehicles, setVehicles] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [alert, setAlert] = useState({ type: "", message: "" });
 
+  // Only allow Dealer Staff and Dealer Manager
+  const canRequest =
+    user?.role === "Dealer Staff" || user?.role === "Dealer Manager";
+
+  // Fetch vehicles on mount
   useEffect(() => {
-    fetchRequests();
-  }, [user]);
-
-  const fetchRequests = async () => {
-    setLoading(true);
-    setAlert({ type: "", message: "" });
-    try {
-      const response = await vehicleRequestApi.getAll();
-
-      if (response.isSuccess) {
-        const allRequests = response.data || [];
-
-        // Filter for pending/processing requests for this dealer
-        const filtered = allRequests.filter((req) => {
-          const statusMatch =
-            req.status?.toLowerCase() === "processing" ||
-            req.status?.toLowerCase() === "pending";
-          const dealerMatch = req.dealerId === user?.dealer_id;
-          return true && dealerMatch;
-        });
-
-        setRequests(filtered);
-        console.log("📋 Filtered Requests:", {
-          total: allRequests.length,
-          pending: filtered.length,
-          dealerId: user?.dealer_id,
-        });
-      } else {
+    async function fetchVehicles() {
+      setLoading(true);
+      try {
+        const response = await vehicleApi.getAll(user?.id);
+        if (response.isSuccess) {
+          setVehicles(response.data);
+        } else {
+          setAlert({
+            type: "error",
+            message: response.messages?.[0] || "Failed to load vehicles",
+          });
+          setVehicles([]);
+        }
+      } catch (error) {
+        console.error("Error fetching vehicles:", error);
         setAlert({
           type: "error",
-          message: response.messages?.[0] || "Failed to load requests",
+          message:
+            error.response?.data?.messages?.[0] || "Failed to load vehicles",
         });
-        setRequests([]);
+        setVehicles([]);
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error("Error fetching requests:", error);
+    }
+    if (user?.id) {
+      fetchVehicles();
+    }
+  }, [user]);
+
+  // Submit request to real API
+  const handleSubmitRequest = async (e) => {
+    e.preventDefault();
+
+    // Validation
+    if (!selectedVehicle) {
+      setAlert({ type: "error", message: "Please select a vehicle" });
+      return;
+    }
+    if (!quantity || quantity < 1) {
+      setAlert({ type: "error", message: "Quantity must be at least 1" });
+      return;
+    }
+    if (!note.trim()) {
       setAlert({
         type: "error",
-        message:
-          error.response?.data?.messages?.[0] || "Failed to load requests",
+        message: "Please provide a reason for the restock request",
       });
-      setRequests([]);
-    } finally {
-      setLoading(false);
+      return;
     }
-  };
-
-  const handleVerify = (request) => {
-    setSelectedRequest(request);
-    setAlert({ type: "", message: "" });
-    setIsModalOpen(true);
-  };
-
-  const handleApprove = async () => {
-    if (!selectedRequest) return;
-
-    setIsApproving(true);
-    setAlert({ type: "", message: "" });
 
     try {
-      const evmStaffId = "5c136c4a-d99c-488b-8859-a90d0c702557";
+      setIsSubmitting(true);
+      setAlert({ type: "", message: "" });
 
-      console.log("Approving request:", {
-        requestId: selectedRequest.id,
-        evmStaffId: evmStaffId,
-      });
+      // Find selected vehicle to get its details
+      const vehicleObj = vehicles.find((v) => v.id === selectedVehicle);
 
-      const response = await vehicleRequestApi.approve(
-        selectedRequest.id,
-        evmStaffId
-      );
+      // Create request payload
+      const requestData = {
+        createdBy: user?.id,
+        vehicleId: selectedVehicle,
+        dealerId: user?.dealer_id || vehicleObj?.dealerId,
+        quantity: parseInt(quantity),
+        note: note.trim(),
+      };
+
+      console.log("Submitting vehicle request:", requestData);
+
+      // Call real API
+      const response = await vehicleRequestApi.create(requestData);
 
       if (response.isSuccess) {
         setAlert({
           type: "success",
           message:
             response.messages?.[0] ||
-            "Request approved successfully and sent to EVM Staff!",
+            "Request submitted successfully! Waiting for manager approval.",
         });
 
+        // Reset form and close modal after delay
         setTimeout(() => {
           setIsModalOpen(false);
-          setSelectedRequest(null);
-          fetchRequests();
-        }, 1500);
+          setSelectedVehicle("");
+          setQuantity(1);
+          setNote("");
+          setAlert({ type: "", message: "" });
+        }, 2000);
       } else {
         setAlert({
           type: "error",
-          message: response.messages?.[0] || "Failed to approve request",
+          message: response.messages?.[0] || "Failed to submit request",
         });
       }
     } catch (error) {
-      console.error("Error approving request:", error);
+      console.error("Error submitting request:", error);
       setAlert({
         type: "error",
         message:
           error.response?.data?.messages?.[0] ||
-          "Failed to approve request. Please try again.",
+          error.message ||
+          "Failed to submit request. Please try again.",
       });
     } finally {
-      setIsApproving(false);
+      setIsSubmitting(false);
     }
   };
 
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setSelectedRequest(null);
+  const openModal = () => {
+    setSelectedVehicle("");
+    setQuantity(1);
+    setNote("");
     setAlert({ type: "", message: "" });
+    setIsModalOpen(true);
   };
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold text-white">
-            Verify Stock Requests
-          </h1>
-          <p className="text-slate-400">
-            Review and verify vehicle stock requests from Dealer Staff before
-            sending to EVM Staff.
-          </p>
-        </div>
-
-        <Alert type={alert.type} message={alert.message} />
-
-        {loading ? (
-          <div className="flex justify-center items-center py-12">
-            <LoadingSpinner size="lg" text="Loading requests..." />
-          </div>
-        ) : requests.length === 0 ? (
-          <EmptyState
-            title="No Pending Requests"
-            description="There are no vehicle restock requests waiting for your approval."
-            icon={
-              <svg
-                className="w-16 h-16 text-slate-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-            }
-          />
-        ) : (
-          <div className="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
-            <Table>
-              <Table.Header>
-                <Table.HeaderCell>Vehicle</Table.HeaderCell>
-                <Table.HeaderCell>Quantity</Table.HeaderCell>
-                <Table.HeaderCell>Requested By</Table.HeaderCell>
-                <Table.HeaderCell>Date</Table.HeaderCell>
-                <Table.HeaderCell>Status</Table.HeaderCell>
-                <Table.HeaderCell align="center">Action</Table.HeaderCell>
-              </Table.Header>
-              <Table.Body>
-                {requests.map((req) => (
-                  <Table.Row key={req.id}>
-                    <Table.Cell>
-                      <div>
-                        <p className="font-semibold text-white">
-                          {req.vehicleModelName || "Unknown Vehicle"}
-                        </p>
-                        <p className="text-sm text-slate-400">
-                          ID: {req.vehicleId?.substring(0, 8)}...
-                        </p>
-                      </div>
-                    </Table.Cell>
-                    <Table.Cell>
-                      <span className="font-semibold text-white">
-                        {req.quantity} units
-                      </span>
-                    </Table.Cell>
-                    <Table.Cell>
-                      <div>
-                        <p className="text-white">
-                          {req.createdByName || "Unknown"}
-                        </p>
-                        <p className="text-sm text-slate-400">
-                          {formatDateTime(req.createdAt)}
-                        </p>
-                      </div>
-                    </Table.Cell>
-                    <Table.Cell>
-                      <span className="text-slate-300">
-                        {formatDateTime(req.createdAt)}
-                      </span>
-                    </Table.Cell>
-                    <Table.Cell>
-                      <Badge variant="warning">{req.status || "Pending"}</Badge>
-                    </Table.Cell>
-                    <Table.Cell align="center">
-                      <Button
-                        onClick={() => handleVerify(req)}
-                        variant="primary"
-                      >
-                        Review
-                      </Button>
-                    </Table.Cell>
-                  </Table.Row>
-                ))}
-              </Table.Body>
-            </Table>
-          </div>
-        )}
-
-        {!loading && requests.length > 0 && (
-          <div className="text-sm text-slate-400">
-            Showing {requests.length} pending request(s) for approval
-          </div>
-        )}
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold text-white">Request Vehicles</h1>
+        <p className="text-slate-400">
+          Dealer Staff and Dealer Manager can request additional stock for
+          available cars.
+        </p>
       </div>
 
-      <Modal
-        isOpen={isModalOpen}
-        onClose={closeModal}
-        title="Review Restock Request"
-        size="md"
-      >
-        <Alert type={alert.type} message={alert.message} />
+      {canRequest && (
+        <div className="mb-6">
+          <Button onClick={openModal}>
+            <svg
+              className="w-5 h-5 mr-2"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 4v16m8-8H4"
+              />
+            </svg>
+            Request More Stock
+          </Button>
+        </div>
+      )}
 
-        {selectedRequest && (
-          <div className="space-y-4 mb-6">
-            <div className="bg-slate-700 rounded-lg p-4 space-y-3">
-              <div>
-                <p className="text-sm text-slate-400">Vehicle</p>
-                <p className="text-white font-semibold">
-                  {selectedRequest.vehicleModelName || "Unknown Vehicle"}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-slate-400">Quantity Requested</p>
-                <p className="text-white font-semibold">
-                  {selectedRequest.quantity} units
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-slate-400">Requested By</p>
-                <p className="text-white">
-                  {selectedRequest.createdByName || "Unknown"}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-slate-400">Request Date</p>
-                <p className="text-white">
-                  {formatDateTime(selectedRequest.createdAt)}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-slate-400">Reason/Note</p>
-                <p className="text-white">
-                  {selectedRequest.note || (
-                    <span className="italic text-slate-400">
-                      No note provided
-                    </span>
-                  )}
-                </p>
-              </div>
+      {/* Vehicles List */}
+      {loading ? (
+        <div className="flex justify-center items-center py-12">
+          <LoadingSpinner size="lg" text="Loading vehicles..." />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {vehicles.length === 0 ? (
+            <div className="col-span-full text-center py-12">
+              <p className="text-slate-400">No vehicles found.</p>
+            </div>
+          ) : (
+            vehicles.map((v) => (
+              <Card key={v.id} hover>
+                <div className="flex items-center gap-3 mb-2">
+                  <img
+                    src={v.imageUrl}
+                    alt={v.modelName}
+                    className="w-16 h-16 rounded-lg object-cover bg-slate-700"
+                    onError={(e) => {
+                      e.target.src =
+                        "https://via.placeholder.com/150?text=No+Image";
+                    }}
+                  />
+                  <div>
+                    <div className="text-white font-bold text-lg">
+                      {v.modelName}
+                    </div>
+                    <div className="text-slate-300 text-sm">{v.version}</div>
+                  </div>
+                </div>
+                <div className="text-slate-300 text-sm mb-2">
+                  Category: <span className="text-white">{v.category}</span>
+                </div>
+                <div className="text-slate-300 text-sm mb-2">
+                  Color: <span className="text-white">{v.color}</span>
+                </div>
+                <div className="text-slate-300 text-sm mb-2">
+                  Battery:{" "}
+                  <span className="text-white">{v.batteryCapacity} kWh</span>
+                </div>
+                <div className="text-slate-300 text-sm mb-2">
+                  Range:{" "}
+                  <span className="text-white">{v.rangePerCharge} km</span>
+                </div>
+                <div className="text-slate-300 text-sm mb-2">
+                  Base Price:{" "}
+                  <span className="text-white">
+                    {v.basePrice?.toLocaleString()} đ
+                  </span>
+                </div>
+                <div className="text-slate-400 text-sm mt-2">
+                  Status:{" "}
+                  <span className="text-white capitalize">{v.status}</span>
+                </div>
+                <div className="text-slate-400 text-sm mt-2">
+                  In Stock:{" "}
+                  <span
+                    className={`font-semibold ${
+                      v.currentStock === 0
+                        ? "text-red-400"
+                        : v.currentStock <= 5
+                        ? "text-yellow-400"
+                        : "text-green-400"
+                    }`}
+                  >
+                    {v.currentStock ?? 0} units
+                  </span>
+                </div>
+              </Card>
+            ))
+          )}
+        </div>
+      )}
+
+      {/* Modal for Stock Request */}
+      {canRequest && (
+        <Modal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          title="Request More Stock"
+        >
+          <form onSubmit={handleSubmitRequest} className="space-y-4">
+            <Alert type={alert.type} message={alert.message} />
+
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Select Vehicle <span className="text-red-400">*</span>
+              </label>
+              <select
+                className="w-full bg-slate-700 border border-slate-600 rounded-lg text-white px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={selectedVehicle}
+                onChange={(e) => setSelectedVehicle(e.target.value)}
+                required
+                disabled={isSubmitting}
+              >
+                <option value="" disabled>
+                  Select a vehicle
+                </option>
+                {vehicles.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.modelName} {v.version} - Current Stock:{" "}
+                    {v.currentStock ?? 0}
+                  </option>
+                ))}
+              </select>
             </div>
 
-            <div className="bg-blue-500 bg-opacity-10 border border-blue-500 rounded-lg p-3">
-              <p className="text-blue-400 text-sm">
-                <strong>Note:</strong> Approving this request will forward it to
-                EVM Staff for processing and fulfillment.
-              </p>
-            </div>
-          </div>
-        )}
+            <InputField
+              id="quantity"
+              name="quantity"
+              type="number"
+              label="Quantity"
+              value={quantity}
+              onChange={(e) => setQuantity(Number(e.target.value))}
+              min={1}
+              required
+              disabled={isSubmitting}
+            />
 
-        <Modal.Footer>
-          <Button
-            variant="secondary"
-            onClick={closeModal}
-            disabled={isApproving}
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="primary"
-            onClick={handleApprove}
-            isLoading={isApproving}
-            disabled={isApproving}
-          >
-            {isApproving ? "Approving..." : "Approve Request"}
-          </Button>
-        </Modal.Footer>
-      </Modal>
+            <div>
+              <label
+                htmlFor="note"
+                className="block text-sm font-medium text-slate-300 mb-2"
+              >
+                Note (Reason for restock){" "}
+                <span className="text-red-400">*</span>
+              </label>
+              <textarea
+                id="note"
+                name="note"
+                className="w-full bg-slate-700 border border-slate-600 rounded-lg text-white px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                rows={3}
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="Enter reason for restock request..."
+                required
+                disabled={isSubmitting}
+              />
+            </div>
+
+            <Modal.Footer>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setIsModalOpen(false)}
+                disabled={isSubmitting}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                isLoading={isSubmitting}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? "Submitting..." : "Send Request"}
+              </Button>
+            </Modal.Footer>
+          </form>
+        </Modal>
+      )}
     </DashboardLayout>
   );
 }
 
-export default RequestVerificationPage;
+export default RequestVehiclesPage;
