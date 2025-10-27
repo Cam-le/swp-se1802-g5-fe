@@ -1,4 +1,3 @@
-import CarDetail from "./CarDetail";
 import { useState, useEffect } from "react";
 import { DashboardLayout } from "../../layout";
 import {
@@ -17,6 +16,7 @@ import {
 import { formatCurrency, formatShortDate } from "../../../utils/helpers";
 import { vehicleApi } from "../../../services/vehicleApi";
 import { useAuth } from "../../../hooks/useAuth";
+import CarDetail from "./CarDetail";
 
 // Category options
 const CATEGORY_OPTIONS = [
@@ -48,8 +48,8 @@ const getStockVariant = (stock) => {
 };
 
 function VehiclesPage() {
-  const [detailModalOpen, setDetailModalOpen] = useState(false);
-  const [selectedVehicle, setSelectedVehicle] = useState(null);
+  // Car detail modal state
+  const [detailVehicle, setDetailVehicle] = useState(null);
   const { user } = useAuth();
   const [vehicles, setVehicles] = useState([]);
   const [filteredVehicles, setFilteredVehicles] = useState([]);
@@ -420,79 +420,71 @@ function VehiclesPage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               {filteredVehicles.map((vehicle) => (
-                selectedVehicle && selectedVehicle.id === vehicle.id ? (
-                  <CarDetail
-                    key={vehicle.id}
-                    vehicle={vehicle}
-                    onClose={() => setSelectedVehicle(null)}
+                <div
+                  key={vehicle.id}
+                  className="bg-slate-800 rounded-xl border border-slate-700 p-6 flex flex-col w-full max-w-[420px] mx-auto transition-transform transition-shadow duration-200 ease-in-out hover:shadow-2xl hover:-translate-y-2 hover:scale-105"
+                >
+                  <img
+                    src={vehicle.imageUrl}
+                    alt={vehicle.modelName}
+                    className="w-full h-32 object-cover rounded mb-2 bg-slate-700"
+                    onError={(e) => {
+                      e.target.src = "https://via.placeholder.com/320x240?text=No+Image";
+                    }}
                   />
-                ) : (
-                  <div
-                    key={vehicle.id}
-                    className="bg-slate-800 rounded-xl border border-slate-700 p-6 flex flex-col w-full max-w-[420px] mx-auto transition-transform transition-shadow duration-200 ease-in-out hover:shadow-2xl hover:-translate-y-2 hover:scale-105"
-                  >
-                    <img
-                      src={vehicle.imageUrl}
-                      alt={vehicle.modelName}
-                      className="w-full h-32 object-cover rounded mb-2 bg-slate-700"
-                      onError={(e) => {
-                        e.target.src = "https://via.placeholder.com/320x240?text=No+Image";
-                      }}
-                    />
-                    <div className="flex flex-col gap-1 mb-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg font-bold text-white">{vehicle.modelName}</span>
-                        <span className="text-base text-slate-400">- {vehicle.version}</span>
-                      </div>
-                      <div className="text-sm text-slate-300 mb-1">{vehicle.description}</div>
+                  <div className="flex flex-col gap-1 mb-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg font-bold text-white">{vehicle.modelName}</span>
+                      <span className="text-base text-slate-400">- {vehicle.version}</span>
                     </div>
-                    <div className="grid grid-cols-2 gap-1 mb-1">
-                      <div>
-                        <span className="text-xs text-slate-400">Range:</span>
-                        <span className="font-semibold text-white ml-1">{vehicle.rangePerCharge} km</span>
-                      </div>
-                      <div>
-                        <span className="text-xs text-slate-400">Battery:</span>
-                        <span className="font-semibold text-white ml-1">{vehicle.batteryCapacity} kWh</span>
-                      </div>
+                    <div className="text-sm text-slate-300 mb-1">{vehicle.description}</div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1 mb-1">
+                    <div>
+                      <span className="text-xs text-slate-400">Range:</span>
+                      <span className="font-semibold text-white ml-1">{vehicle.rangePerCharge} km</span>
                     </div>
-                    <div className="flex items-center justify-between mb-1">
-                      <div>
-                        <span className="text-xs text-slate-400">Status:</span>
-                        <span className="font-semibold ml-1">
-                          <Badge variant={getStatusVariant(vehicle.status)}>{vehicle.status}</Badge>
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-xs text-slate-400">Stock:</span>
-                        <span className="font-semibold ml-1">
-                          <Badge variant={getStockVariant(vehicle.currentStock)}>{vehicle.currentStock}</Badge>
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs text-slate-400">Launch Date:</span>
-                      <span className="font-semibold text-white">{vehicle.launchDate ? formatShortDate(vehicle.launchDate) : '-'}</span>
-                    </div>
-                    <div className="text-lg font-bold text-orange-400 mb-2">
-                      {formatCurrency(vehicle.basePrice)}
-                    </div>
-                    <div className="flex gap-2 mt-auto">
-                      <Button variant="primary" className="w-full" onClick={() => openEditModal(vehicle)}>
-                        Edit
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        className="w-full"
-                        onClick={() => {
-                          setSelectedVehicle(vehicle);
-                        }}
-                      >
-                        Details
-                      </Button>
+                    <div>
+                      <span className="text-xs text-slate-400">Battery:</span>
+                      <span className="font-semibold text-white ml-1">{vehicle.batteryCapacity} kWh</span>
                     </div>
                   </div>
-                )
+                  <div className="flex items-center justify-between mb-1">
+                    <div>
+                      <span className="text-xs text-slate-400">Status:</span>
+                      <span className="font-semibold ml-1">
+                        <Badge variant={getStatusVariant(vehicle.status)}>{vehicle.status}</Badge>
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-xs text-slate-400">Stock:</span>
+                      <span className="font-semibold ml-1">
+                        <Badge variant={getStockVariant(vehicle.currentStock)}>{vehicle.currentStock}</Badge>
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xs text-slate-400">Launch Date:</span>
+                    <span className="font-semibold text-white">{vehicle.launchDate ? formatShortDate(vehicle.launchDate) : '-'}</span>
+                  </div>
+                  <div className="text-lg font-bold text-orange-400 mb-2">
+                    {formatCurrency(vehicle.basePrice)}
+                  </div>
+                  <div className="flex gap-2 mt-auto">
+                    <Button variant="primary" className="w-full" onClick={() => openEditModal(vehicle)}>
+                      Edit
+                    </Button>
+                    <Button variant="secondary" className="w-full" onClick={() => setDetailVehicle(vehicle)}>
+                      Detail
+                    </Button>
+                    {/* End of card actions */}
+
+                    {/* Car Detail Modal rendered at root */}
+                    {detailVehicle && (
+                      <CarDetail vehicle={detailVehicle} onClose={() => setDetailVehicle(null)} />
+                    )}
+                  </div>
+                </div>
               ))}
             </div>
           )}
