@@ -14,6 +14,7 @@ function CustomersPage() {
     // Modal & form state
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [formData, setFormData] = useState({ full_name: "", email: "", phone: "", address: "" });
+    const [phoneError, setPhoneError] = useState("");
     const [formErrors, setFormErrors] = useState({});
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [alert, setAlert] = useState({ type: "", message: "" });
@@ -51,6 +52,13 @@ function CustomersPage() {
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
+        if (name === "phone") {
+            if (/[a-zA-Z]/.test(value)) {
+                setPhoneError("Letter is not allowed");
+            } else {
+                setPhoneError("");
+            }
+        }
         setFormData((prev) => ({ ...prev, [name]: value }));
         if (formErrors[name]) setFormErrors((prev) => ({ ...prev, [name]: "" }));
     };
@@ -153,7 +161,7 @@ function CustomersPage() {
                         <div className="grid grid-cols-1 gap-4">
                             <InputField id="full_name" name="full_name" label="Full Name" value={formData.full_name} onChange={handleInputChange} error={formErrors.full_name} />
                             <InputField id="email" name="email" label="Email" value={formData.email} onChange={handleInputChange} error={formErrors.email} />
-                            <InputField id="phone" name="phone" label="Phone" value={formData.phone} onChange={handleInputChange} error={formErrors.phone} />
+                            <InputField id="phone" name="phone" label="Phone" value={formData.phone} onChange={handleInputChange} error={formErrors.phone || phoneError} />
                             <InputField id="address" name="address" label="Address" value={formData.address} onChange={handleInputChange} error={formErrors.address} />
                         </div>
 

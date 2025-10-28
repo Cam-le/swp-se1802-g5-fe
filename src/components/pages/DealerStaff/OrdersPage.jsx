@@ -35,6 +35,7 @@ function OrdersPage() {
     const [availableVehicles, setAvailableVehicles] = useState([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [formData, setFormData] = useState({ customer_id: "", vehicle_id: "", payment_type: "full" });
+    const [phoneError, setPhoneError] = useState("");
     const [alert, setAlert] = useState({ type: "", message: "" });
 
     useEffect(() => {
@@ -98,6 +99,13 @@ function OrdersPage() {
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
+        if (name === "customer_phone") {
+            if (/[a-zA-Z]/.test(value)) {
+                setPhoneError("Letter is not allowed");
+            } else {
+                setPhoneError("");
+            }
+        }
         // If changing customer_name, check for existing customer and autofill
         if (name === "customer_name") {
             const matched = customers.find(c => c.full_name.toLowerCase() === value.toLowerCase());
@@ -325,7 +333,7 @@ function OrdersPage() {
                             <div className="font-semibold mb-2">Order Information</div>
                             <div className="grid grid-cols-1 gap-3">
                                 <InputField id="customer_name" name="customer_name" label="Full Name" value={formData.customer_name || ''} onChange={handleInputChange} onBlur={handleBlur} required autoComplete="off" />
-                                <InputField id="customer_phone" name="customer_phone" label="Phone Number" value={formData.customer_phone || ''} onChange={handleInputChange} onBlur={handleBlur} required autoComplete="off" />
+                                <InputField id="customer_phone" name="customer_phone" label="Phone Number" value={formData.customer_phone || ''} onChange={handleInputChange} onBlur={handleBlur} required autoComplete="off" error={phoneError} />
                                 <InputField id="customer_address" name="customer_address" label="Address" value={formData.customer_address || ''} onChange={handleInputChange} onBlur={handleBlur} required autoComplete="off" />
                                 <InputField id="note" name="note" label="Request" value={formData.note || ''} onChange={handleInputChange} onBlur={handleBlur} autoComplete="off" />
                             </div>

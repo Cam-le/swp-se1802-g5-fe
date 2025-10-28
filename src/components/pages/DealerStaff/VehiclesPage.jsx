@@ -48,7 +48,7 @@ const getStockVariant = (stock) => {
 };
 
 function VehiclesPage() {
-  // Car detail modal state
+  // Car detail view state
   const [detailVehicle, setDetailVehicle] = useState(null);
   const { user } = useAuth();
   const [vehicles, setVehicles] = useState([]);
@@ -387,301 +387,342 @@ function VehiclesPage() {
 
         {/* Vehicle Table */}
         <Card padding={false}>
-          {loading ? (
-            <div className="flex justify-center items-center py-12">
-              <LoadingSpinner size="lg" text="Loading vehicles..." />
-            </div>
-          ) : filteredVehicles.length === 0 ? (
-            <EmptyState
-              title="No vehicles found"
-              description={
-                searchQuery || statusFilter
-                  ? "Try adjusting your search or filters"
-                  : "Get started by adding your first vehicle"
-              }
-              action={openCreateModal}
-              actionLabel="Add Vehicle"
-              icon={
-                <svg
-                  className="w-16 h-16 text-slate-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M13 10V3L4 14h7v7l9-11h-7z"
-                  />
-                </svg>
-              }
-            />
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              {filteredVehicles.map((vehicle) => (
-                <div
-                  key={vehicle.id}
-                  className="bg-slate-800 rounded-xl border border-slate-700 p-6 flex flex-col w-full max-w-[420px] mx-auto transition-transform transition-shadow duration-200 ease-in-out hover:shadow-2xl hover:-translate-y-2 hover:scale-105"
-                >
-                  <img
-                    src={vehicle.imageUrl}
-                    alt={vehicle.modelName}
-                    className="w-full h-32 object-cover rounded mb-2 bg-slate-700"
-                    onError={(e) => {
-                      e.target.src = "https://via.placeholder.com/320x240?text=No+Image";
-                    }}
-                  />
-                  <div className="flex flex-col gap-1 mb-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg font-bold text-white">{vehicle.modelName}</span>
-                      <span className="text-base text-slate-400">- {vehicle.version}</span>
-                    </div>
-                    <div className="text-sm text-slate-300 mb-1">{vehicle.description}</div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-1 mb-1">
+          <div>
+            {loading ? (
+              <div className="flex justify-center items-center py-12">
+                <LoadingSpinner size="lg" text="Loading vehicles..." />
+              </div>
+            ) : detailVehicle ? (
+              <div className="flex flex-col md:flex-row bg-slate-800 rounded-2xl border-2 border-slate-700 p-16 w-full min-h-[480px] mx-auto mt-8 shadow-2xl">
+                <img
+                  src={detailVehicle.imageUrl}
+                  alt={detailVehicle.modelName}
+                  className="w-full max-w-2xl h-[32rem] object-cover rounded-2xl bg-slate-700 mb-8 md:mb-0 md:mr-16 shadow-lg border border-slate-600"
+                  onError={(e) => {
+                    e.target.src = "https://via.placeholder.com/800x480?text=No+Image";
+                  }}
+                />
+                <div className="flex-1 flex flex-col gap-6 justify-center">
+                  <h2 className="text-4xl font-bold text-white mb-2">
+                    {detailVehicle.modelName} <span className="text-2xl text-slate-400">- {detailVehicle.version}</span>
+                  </h2>
+                  <div className="text-lg text-slate-300 mb-4">{detailVehicle.description}</div>
+                  <div className="flex flex-wrap gap-6 mb-2">
                     <div>
-                      <span className="text-xs text-slate-400">Range:</span>
-                      <span className="font-semibold text-white ml-1">{vehicle.rangePerCharge} km</span>
+                      <span className="text-base text-slate-400">Category:</span>
+                      <span className="ml-1 font-semibold text-white">{detailVehicle.category}</span>
                     </div>
                     <div>
-                      <span className="text-xs text-slate-400">Battery:</span>
-                      <span className="font-semibold text-white ml-1">{vehicle.batteryCapacity} kWh</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between mb-1">
-                    <div>
-                      <span className="text-xs text-slate-400">Status:</span>
-                      <span className="font-semibold ml-1">
-                        <Badge variant={getStatusVariant(vehicle.status)}>{vehicle.status}</Badge>
-                      </span>
+                      <span className="text-base text-slate-400">Color:</span>
+                      <span className="ml-1 font-semibold text-white">{detailVehicle.color}</span>
                     </div>
                     <div>
-                      <span className="text-xs text-slate-400">Stock:</span>
-                      <span className="font-semibold ml-1">
-                        <Badge variant={getStockVariant(vehicle.currentStock)}>{vehicle.currentStock}</Badge>
-                      </span>
+                      <span className="text-base text-slate-400">Status:</span>
+                      <span className="ml-1 font-semibold"><Badge>{detailVehicle.status}</Badge></span>
+                    </div>
+                    <div>
+                      <span className="text-base text-slate-400">Stock:</span>
+                      <span className="ml-1 font-semibold"><Badge>{detailVehicle.currentStock}</Badge></span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-xs text-slate-400">Launch Date:</span>
-                    <span className="font-semibold text-white">{vehicle.launchDate ? formatShortDate(vehicle.launchDate) : '-'}</span>
+                  <div className="flex flex-wrap gap-6 mb-2">
+                    <div>
+                      <span className="text-base text-slate-400">Range:</span>
+                      <span className="ml-1 font-semibold text-white">{detailVehicle.rangePerCharge} km</span>
+                    </div>
+                    <div>
+                      <span className="text-base text-slate-400">Battery:</span>
+                      <span className="ml-1 font-semibold text-white">{detailVehicle.batteryCapacity} kWh</span>
+                    </div>
+                    <div>
+                      <span className="text-base text-slate-400">Launch Date:</span>
+                      <span className="ml-1 font-semibold text-white">{detailVehicle.launchDate ? formatShortDate(detailVehicle.launchDate) : '-'}</span>
+                    </div>
                   </div>
-                  <div className="text-lg font-bold text-orange-400 mb-2">
-                    {formatCurrency(vehicle.basePrice)}
+                  <div className="text-3xl font-bold text-orange-400 mb-4">
+                    {formatCurrency(detailVehicle.basePrice)}
                   </div>
-                  <div className="flex gap-2 mt-auto">
-                    <Button variant="primary" className="w-full" onClick={() => openEditModal(vehicle)}>
-                      Edit
-                    </Button>
-                    <Button variant="secondary" className="w-full" onClick={() => setDetailVehicle(vehicle)}>
-                      Detail
-                    </Button>
-                    {/* End of card actions */}
-
-                    {/* Car Detail Modal rendered at root */}
-                    {detailVehicle && (
-                      <CarDetail vehicle={detailVehicle} onClose={() => setDetailVehicle(null)} />
-                    )}
+                  <Button variant="primary" onClick={() => setDetailVehicle(null)} className="mt-4 w-max self-end">Return</Button>
+                </div>
+              </div>
+            ) : filteredVehicles.length === 0 ? (
+              <EmptyState
+                title="No vehicles found"
+                description={
+                  searchQuery || statusFilter
+                    ? "Try adjusting your search or filters"
+                    : "Get started by adding your first vehicle"
+                }
+                action={openCreateModal}
+                actionLabel="Add Vehicle"
+                icon={
+                  <svg
+                    className="w-16 h-16 text-slate-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M13 10V3L4 14h7v7l9-11h-7z"
+                    />
+                  </svg>
+                }
+              />
+            ) : (
+              <div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                  {filteredVehicles.map((vehicle) => (
+                    <div
+                      key={vehicle.id}
+                      className="bg-slate-800 rounded-xl border border-slate-700 p-6 flex flex-col w-full max-w-[420px] mx-auto transition-transform transition-shadow duration-200 ease-in-out hover:shadow-2xl hover:-translate-y-2 hover:scale-105"
+                    >
+                      <img
+                        src={vehicle.imageUrl}
+                        alt={vehicle.modelName}
+                        className="w-full h-32 object-cover rounded mb-2 bg-slate-700"
+                        onError={(e) => {
+                          e.target.src = "https://via.placeholder.com/320x240?text=No+Image";
+                        }}
+                      />
+                      <div className="flex flex-col gap-1 mb-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg font-bold text-white">{vehicle.modelName}</span>
+                          <span className="text-base text-slate-400">- {vehicle.version}</span>
+                        </div>
+                        <div className="text-sm text-slate-300 mb-1">{vehicle.description}</div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-1 mb-1">
+                        <div>
+                          <span className="text-xs text-slate-400">Range:</span>
+                          <span className="font-semibold text-white ml-1">{vehicle.rangePerCharge} km</span>
+                        </div>
+                        <div>
+                          <span className="text-xs text-slate-400">Battery:</span>
+                          <span className="font-semibold text-white ml-1">{vehicle.batteryCapacity} kWh</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between mb-1">
+                        <div>
+                          <span className="text-xs text-slate-400">Status:</span>
+                          <span className="font-semibold ml-1">
+                            <Badge variant={getStatusVariant(vehicle.status)}>{vehicle.status}</Badge>
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-xs text-slate-400">Stock:</span>
+                          <span className="font-semibold ml-1">
+                            <Badge variant={getStockVariant(vehicle.currentStock)}>{vehicle.currentStock}</Badge>
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs text-slate-400">Launch Date:</span>
+                        <span className="font-semibold text-white">{vehicle.launchDate ? formatShortDate(vehicle.launchDate) : '-'}</span>
+                      </div>
+                      <div className="text-lg font-bold text-orange-400 mb-2">
+                        {formatCurrency(vehicle.basePrice)}
+                      </div>
+                      <div className="flex gap-2 mt-auto">
+                        <Button variant="primary" className="w-full" onClick={() => openEditModal(vehicle)}>
+                          Edit
+                        </Button>
+                        <Button variant="secondary" className="w-full" onClick={() => setDetailVehicle(vehicle)}>
+                          Detail
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8">
+                  <div className="bg-slate-800 rounded-lg border border-slate-700 p-4">
+                    <p className="text-sm text-slate-400">Total Stock</p>
+                    <p className="text-2xl font-bold text-white mt-1">
+                      {filteredVehicles.reduce(
+                        (sum, v) => sum + (v.currentStock || 0),
+                        0
+                      )}
+                    </p>
+                  </div>
+                  <div className="bg-slate-800 rounded-lg border border-slate-700 p-4">
+                    <p className="text-sm text-slate-400">Out of Stock</p>
+                    <p className="text-2xl font-bold text-white mt-1">
+                      {filteredVehicles.filter((v) => v.currentStock === 0).length}
+                    </p>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
+              </div>
+            )}
+          </div>
         </Card>
 
-        {/* Stats */}
-        {!loading && vehicles.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-slate-800 rounded-lg border border-slate-700 p-4">
-              <p className="text-sm text-slate-400">Total Vehicles</p>
-              <p className="text-2xl font-bold text-white mt-1">
-                {filteredVehicles.length}
-              </p>
-            </div>
-            <div className="bg-slate-800 rounded-lg border border-slate-700 p-4">
-              <p className="text-sm text-slate-400">Total Stock</p>
-              <p className="text-2xl font-bold text-white mt-1">
-                {filteredVehicles.reduce(
-                  (sum, v) => sum + (v.currentStock || 0),
-                  0
+        {/* Create/Edit Modal */}
+        <Modal
+          isOpen={isModalOpen}
+          onClose={closeModal}
+          title={modalMode === "create" ? "Add New Vehicle" : "Edit Vehicle"}
+          size="lg"
+        >
+          <form onSubmit={handleSubmit}>
+            <Alert type={alert.type} message={alert.message} />
+
+            <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+              {/* Model Name & Version */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <InputField
+                  id="modelName"
+                  name="modelName"
+                  label="Model Name"
+                  value={formData.modelName}
+                  onChange={handleInputChange}
+                  error={formErrors.modelName}
+                  placeholder="e.g., VinFast VF 8"
+                  required
+                />
+                <InputField
+                  id="version"
+                  name="version"
+                  label="Version"
+                  value={formData.version}
+                  onChange={handleInputChange}
+                  error={formErrors.version}
+                  placeholder="e.g., Plus, Eco"
+                  required
+                />
+              </div>
+
+              {/* Category & Color */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Select
+                  id="category"
+                  name="category"
+                  label="Category"
+                  value={formData.category}
+                  onChange={handleInputChange}
+                  options={CATEGORY_OPTIONS}
+                  error={formErrors.category}
+                  placeholder="Select category"
+                  required
+                />
+                <InputField
+                  id="color"
+                  name="color"
+                  label="Color"
+                  value={formData.color}
+                  onChange={handleInputChange}
+                  error={formErrors.color}
+                  placeholder="e.g., Trắng Ngọc Trai"
+                  required
+                />
+              </div>
+
+              {/* Image URL */}
+              <InputField
+                id="imageUrl"
+                name="imageUrl"
+                label="Image URL"
+                value={formData.imageUrl}
+                onChange={handleInputChange}
+                error={formErrors.imageUrl}
+                placeholder="https://example.com/vehicle-image.jpg"
+                required
+              />
+
+              {/* Description */}
+              <div>
+                <label
+                  htmlFor="description"
+                  className="block text-sm font-medium text-slate-300 mb-2"
+                >
+                  Description <span className="text-red-400">*</span>
+                </label>
+                <textarea
+                  id="description"
+                  name="description"
+                  value={formData.description}
+                  onChange={handleInputChange}
+                  rows={3}
+                  className={`w-full px-4 py-3 bg-slate-700 border ${formErrors.description ? "border-red-500" : "border-slate-600"
+                    } rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition`}
+                  placeholder="Enter vehicle description..."
+                />
+                {formErrors.description && (
+                  <p className="mt-1 text-sm text-red-400">
+                    {formErrors.description}
+                  </p>
                 )}
-              </p>
-            </div>
-            <div className="bg-slate-800 rounded-lg border border-slate-700 p-4">
-              <p className="text-sm text-slate-400">Out of Stock</p>
-              <p className="text-2xl font-bold text-white mt-1">
-                {filteredVehicles.filter((v) => v.currentStock === 0).length}
-              </p>
-            </div>
-          </div>
-        )}
-      </div>
+              </div>
 
-      {/* Create/Edit Modal */}
-      <Modal
-        isOpen={isModalOpen}
-        onClose={closeModal}
-        title={modalMode === "create" ? "Add New Vehicle" : "Edit Vehicle"}
-        size="lg"
-      >
-        <form onSubmit={handleSubmit}>
-          <Alert type={alert.type} message={alert.message} />
+              {/* Battery Capacity & Range */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <InputField
+                  id="batteryCapacity"
+                  name="batteryCapacity"
+                  type="number"
+                  label="Battery Capacity (kWh)"
+                  value={formData.batteryCapacity}
+                  onChange={handleInputChange}
+                  error={formErrors.batteryCapacity}
+                  placeholder="e.g., 90"
+                  required
+                />
+                <InputField
+                  id="rangePerCharge"
+                  name="rangePerCharge"
+                  type="number"
+                  label="Range Per Charge (km)"
+                  value={formData.rangePerCharge}
+                  onChange={handleInputChange}
+                  error={formErrors.rangePerCharge}
+                  placeholder="e.g., 470"
+                  required
+                />
+              </div>
 
-          <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
-            {/* Model Name & Version */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Base Price */}
               <InputField
-                id="modelName"
-                name="modelName"
-                label="Model Name"
-                value={formData.modelName}
+                id="basePrice"
+                name="basePrice"
+                type="number"
+                label="Base Price (VND)"
+                value={formData.basePrice}
                 onChange={handleInputChange}
-                error={formErrors.modelName}
-                placeholder="e.g., VinFast VF 8"
+                error={formErrors.basePrice}
+                placeholder="e.g., 1250000000"
                 required
               />
+
+              {/* Launch Date */}
               <InputField
-                id="version"
-                name="version"
-                label="Version"
-                value={formData.version}
+                id="launchDate"
+                name="launchDate"
+                type="date"
+                label="Launch Date"
+                value={formData.launchDate}
                 onChange={handleInputChange}
-                error={formErrors.version}
-                placeholder="e.g., Plus, Eco"
+                error={formErrors.launchDate}
                 required
               />
             </div>
 
-            {/* Category & Color */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Select
-                id="category"
-                name="category"
-                label="Category"
-                value={formData.category}
-                onChange={handleInputChange}
-                options={CATEGORY_OPTIONS}
-                error={formErrors.category}
-                placeholder="Select category"
-                required
-              />
-              <InputField
-                id="color"
-                name="color"
-                label="Color"
-                value={formData.color}
-                onChange={handleInputChange}
-                error={formErrors.color}
-                placeholder="e.g., Trắng Ngọc Trai"
-                required
-              />
-            </div>
-
-            {/* Image URL */}
-            <InputField
-              id="imageUrl"
-              name="imageUrl"
-              label="Image URL"
-              value={formData.imageUrl}
-              onChange={handleInputChange}
-              error={formErrors.imageUrl}
-              placeholder="https://example.com/vehicle-image.jpg"
-              required
-            />
-
-            {/* Description */}
-            <div>
-              <label
-                htmlFor="description"
-                className="block text-sm font-medium text-slate-300 mb-2"
+            <Modal.Footer>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={closeModal}
+                disabled={isSubmitting}
               >
-                Description <span className="text-red-400">*</span>
-              </label>
-              <textarea
-                id="description"
-                name="description"
-                value={formData.description}
-                onChange={handleInputChange}
-                rows={3}
-                className={`w-full px-4 py-3 bg-slate-700 border ${formErrors.description ? "border-red-500" : "border-slate-600"
-                  } rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition`}
-                placeholder="Enter vehicle description..."
-              />
-              {formErrors.description && (
-                <p className="mt-1 text-sm text-red-400">
-                  {formErrors.description}
-                </p>
-              )}
-            </div>
-
-            {/* Battery Capacity & Range */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <InputField
-                id="batteryCapacity"
-                name="batteryCapacity"
-                type="number"
-                label="Battery Capacity (kWh)"
-                value={formData.batteryCapacity}
-                onChange={handleInputChange}
-                error={formErrors.batteryCapacity}
-                placeholder="e.g., 90"
-                required
-              />
-              <InputField
-                id="rangePerCharge"
-                name="rangePerCharge"
-                type="number"
-                label="Range Per Charge (km)"
-                value={formData.rangePerCharge}
-                onChange={handleInputChange}
-                error={formErrors.rangePerCharge}
-                placeholder="e.g., 470"
-                required
-              />
-            </div>
-
-            {/* Base Price */}
-            <InputField
-              id="basePrice"
-              name="basePrice"
-              type="number"
-              label="Base Price (VND)"
-              value={formData.basePrice}
-              onChange={handleInputChange}
-              error={formErrors.basePrice}
-              placeholder="e.g., 1250000000"
-              required
-            />
-
-            {/* Launch Date */}
-            <InputField
-              id="launchDate"
-              name="launchDate"
-              type="date"
-              label="Launch Date"
-              value={formData.launchDate}
-              onChange={handleInputChange}
-              error={formErrors.launchDate}
-              required
-            />
-          </div>
-
-          <Modal.Footer>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={closeModal}
-              disabled={isSubmitting}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" isLoading={isSubmitting}>
-              {modalMode === "create" ? "Create Vehicle" : "Update Vehicle"}
-            </Button>
-          </Modal.Footer>
-        </form>
-      </Modal>
+                Cancel
+              </Button>
+              <Button type="submit" isLoading={isSubmitting}>
+                {modalMode === "create" ? "Create Vehicle" : "Update Vehicle"}
+              </Button>
+            </Modal.Footer>
+          </form>
+        </Modal>
+      </div>
     </DashboardLayout>
   );
 }
