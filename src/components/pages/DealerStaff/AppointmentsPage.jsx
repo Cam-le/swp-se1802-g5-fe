@@ -95,7 +95,7 @@ function AppointmentsPage() {
                 <div className="flex items-center justify-between">
                     <div>
                         <h1 className="text-3xl font-bold text-white">Appointments Page</h1>
-                        <p className="text-slate-400">Welcome back, {user?.full_name}!</p>
+                        <p className="text-slate-400">Manage Test Drive Appointments</p>
                     </div>
                     <button
                         className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg shadow transition-colors duration-150"

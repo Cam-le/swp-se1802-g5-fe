@@ -98,6 +98,19 @@ export const customerApi = {
     MOCK_CUSTOMERS.push(newCustomer);
     return newCustomer;
   },
+
+  update: async (id, customerData) => {
+    await delay();
+    const idx = MOCK_CUSTOMERS.findIndex((c) => c.id === id);
+    if (idx === -1) throw new Error("Customer not found");
+    const updated = {
+      ...MOCK_CUSTOMERS[idx],
+      ...customerData,
+      updated_at: new Date().toISOString(),
+    };
+    MOCK_CUSTOMERS[idx] = updated;
+    return updated;
+  },
 };
 
 // Order API

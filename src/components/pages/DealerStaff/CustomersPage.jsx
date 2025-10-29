@@ -14,6 +14,13 @@ function CustomersPage() {
     // Modal & form state
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [formData, setFormData] = useState({ full_name: "", email: "", phone: "", address: "" });
+    // For details/edit modal
+    const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+    const [selectedCustomer, setSelectedCustomer] = useState(null);
+    const [editData, setEditData] = useState({ full_name: "", email: "", phone: "", address: "" });
+    const [editErrors, setEditErrors] = useState({});
+    const [isEditSubmitting, setIsEditSubmitting] = useState(false);
+    const [editAlert, setEditAlert] = useState({ type: "", message: "" });
     const [phoneError, setPhoneError] = useState("");
     const [formErrors, setFormErrors] = useState({});
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -104,6 +111,66 @@ function CustomersPage() {
         }
     };
 
+    // Open details modal and load customer info
+    const openDetailsModal = (customer) => {
+        setSelectedCustomer(customer);
+        setEditData({
+            full_name: customer.full_name || "",
+            email: customer.email || "",
+            phone: customer.phone || "",
+            address: customer.address || "",
+        });
+        setEditErrors({});
+        setEditAlert({ type: "", message: "" });
+        setIsDetailsOpen(true);
+    };
+
+    const closeDetailsModal = () => {
+        setIsDetailsOpen(false);
+        setSelectedCustomer(null);
+        setIsEditSubmitting(false);
+    };
+
+    const handleEditInputChange = (e) => {
+        const { name, value } = e.target;
+        setEditData((prev) => ({ ...prev, [name]: value }));
+        if (editErrors[name]) setEditErrors((prev) => ({ ...prev, [name]: "" }));
+    };
+
+    const validateEditForm = () => {
+        const errors = {};
+        if (!editData.full_name.trim()) errors.full_name = "Full name is required";
+        if (!editData.email.trim()) errors.email = "Email is required";
+        if (!editData.phone.trim()) errors.phone = "Phone is required";
+        if (!editData.address.trim()) errors.address = "Address is required";
+        setEditErrors(errors);
+        return Object.keys(errors).length === 0;
+    };
+
+    const handleEditSubmit = async (e) => {
+        e.preventDefault();
+        if (!validateEditForm()) {
+            setEditAlert({ type: "error", message: "Please fix the errors below" });
+            return;
+        }
+        try {
+            setIsEditSubmitting(true);
+            const updated = await customerApi.update(selectedCustomer.id, {
+                ...selectedCustomer,
+                ...editData,
+            });
+            setCustomers((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
+            setEditAlert({ type: "success", message: "Customer updated successfully" });
+            setTimeout(() => {
+                closeDetailsModal();
+            }, 800);
+        } catch (err) {
+            setEditAlert({ type: "error", message: "Failed to update customer" });
+        } finally {
+            setIsEditSubmitting(false);
+        }
+    };
+
     return (
         <DashboardLayout>
             <div className="space-y-6">
@@ -111,7 +178,7 @@ function CustomersPage() {
                 <div className="flex items-center justify-between">
                     <div>
                         <h1 className="text-3xl font-bold text-white">Customers Page</h1>
-                        <p className="text-slate-400">Welcome back, {user?.full_name}!</p>
+                        <p className="text-slate-400">Customers Management</p>
                     </div>
                     <Button onClick={openCreateModal}>
                         <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -134,7 +201,7 @@ function CustomersPage() {
                     ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                             {customers.map((c) => (
-                                <Card key={c.id} hover className="flex items-start space-x-4">
+                                <Card key={c.id} hover className="flex items-start space-x-4 relative pb-8">
                                     <div className="flex-shrink-0">
                                         <div className="h-12 w-12 rounded-full bg-slate-700 flex items-center justify-center text-white font-semibold">
                                             {getInitials(c.full_name)}
@@ -149,8 +216,29 @@ function CustomersPage() {
                                         <div className="text-slate-400 text-sm mt-2">Phone: {c.phone}</div>
                                         <div className="text-slate-400 text-sm mt-1">Address: {c.address}</div>
                                     </div>
+                                    <div className="absolute right-4 bottom-3">
+                                        <Button size="xs" variant="primary" onClick={() => openDetailsModal(c)}>
+                                            Details
+                                        </Button>
+                                    </div>
                                 </Card>
                             ))}
+                            {/* Customer Details/Edit Modal */}
+                            <Modal isOpen={isDetailsOpen} onClose={closeDetailsModal} title="Customer Details & Edit">
+                                {selectedCustomer && (
+                                    <form onSubmit={handleEditSubmit} className="space-y-4">
+                                        <InputField id="full_name" name="full_name" label="Full Name" value={editData.full_name} onChange={handleEditInputChange} error={editErrors.full_name} />
+                                        <InputField id="email" name="email" label="Email" value={editData.email} onChange={handleEditInputChange} error={editErrors.email} />
+                                        <InputField id="phone" name="phone" label="Phone" value={editData.phone} onChange={handleEditInputChange} error={editErrors.phone} />
+                                        <InputField id="address" name="address" label="Address" value={editData.address} onChange={handleEditInputChange} error={editErrors.address} />
+                                        {editAlert.message && <Alert type={editAlert.type}>{editAlert.message}</Alert>}
+                                        <div className="flex items-center justify-end space-x-2">
+                                            <Button type="button" variant="secondary" onClick={closeDetailsModal} disabled={isEditSubmitting}>Cancel</Button>
+                                            <Button type="submit" disabled={isEditSubmitting}>{isEditSubmitting ? "Saving..." : "Save Changes"}</Button>
+                                        </div>
+                                    </form>
+                                )}
+                            </Modal>
                         </div>
                     )}
                 </div>

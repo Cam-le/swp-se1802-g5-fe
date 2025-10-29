@@ -124,8 +124,8 @@ function OrdersPage() {
 
     const handleCreateOrder = async (e) => {
         e.preventDefault();
-        if (!formData.customer_id || !formData.vehicle_id) {
-            setAlert({ type: "error", message: "Please select customer and vehicle." });
+        if (!formData.customer_name || !formData.customer_phone || !formData.customer_address || !formData.vehicle_id) {
+            setAlert({ type: "error", message: "Please fill in all required fields." });
             return;
         }
         try {
@@ -134,8 +134,28 @@ function OrdersPage() {
             const vehicle = availableVehicles.find((v) => v.id === formData.vehicle_id);
             const qty = formData.quantity || 1;
             const price = vehicle ? (vehicle.basePrice || vehicle.base_price || 0) : 0;
+            // Check if customer exists by name, phone, and address
+            let customer = customers.find(c =>
+                c.full_name.trim().toLowerCase() === formData.customer_name.trim().toLowerCase() &&
+                c.phone.trim() === formData.customer_phone.trim() &&
+                c.address.trim().toLowerCase() === formData.customer_address.trim().toLowerCase()
+            );
+            let customer_id = customer ? customer.id : null;
+            // If not found, create new customer
+            if (!customer_id) {
+                const newCustomer = await customerApi.create({
+                    full_name: formData.customer_name.trim(),
+                    phone: formData.customer_phone.trim(),
+                    address: formData.customer_address.trim(),
+                    email: formData.customer_email || "", // Add email if available
+                    dealer_staff_id: user?.id,
+                });
+                customer_id = newCustomer.id;
+                // Add to customers list immediately
+                setCustomers(prev => [newCustomer, ...prev]);
+            }
             const payload = {
-                customer_id: formData.customer_id,
+                customer_id,
                 dealer_staff_id: user?.id,
                 dealer_id: user?.dealer_id,
                 vehicle_id: formData.vehicle_id,
@@ -145,6 +165,13 @@ function OrdersPage() {
             };
             const created = await orderApi.create(payload);
             setOrders((prev) => [created, ...prev]);
+            // Refetch customers to ensure the latest list (including new customers)
+            try {
+                const customersData = await customerApi.getAll(user?.id);
+                setCustomers(Array.isArray(customersData) ? customersData : []);
+            } catch (err) {
+                // Optionally handle error
+            }
             setAlert({ type: "success", message: "Order created successfully" });
             setTimeout(() => closeModal(), 800);
         } catch (err) {
@@ -175,7 +202,7 @@ function OrdersPage() {
                 <div className="flex items-center justify-between">
                     <div>
                         <h1 className="text-3xl font-bold text-white">Orders Page</h1>
-                        <p className="text-slate-400">Welcome back, {user?.full_name}!</p>
+                        <p className="text-slate-400">Manage Customer's orders</p>
                     </div>
                     <Button onClick={openCreateModal}>
                         <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
