@@ -13,7 +13,22 @@ export const vehicleRequestApi = {
   getAll: async () => {
     try {
       const response = await apiClient.get("/api/VehicleRequest");
-      return response.data; // Returns { data: [...], resultStatus: 0, messages: [...], isSuccess: true }
+
+      // API returns array directly, not wrapped in { data, isSuccess }
+      const data = response.data;
+
+      // If it's already an array, wrap it in standard format
+      if (Array.isArray(data)) {
+        return {
+          data: data,
+          isSuccess: true,
+          messages: [],
+          resultStatus: 0,
+        };
+      }
+
+      // Otherwise return as-is (in case API changes to standard format)
+      return data;
     } catch (error) {
       console.error("Error fetching vehicle requests:", error);
       throw error;
@@ -51,40 +66,111 @@ export const vehicleRequestApi = {
   },
 
   /**
-   * Approve vehicle request (EVM Staff approves)
+   * Approve vehicle request by Dealer Manager
    * @param {string} requestId - Request UUID
-   * @param {string} evmStaffId - EVM Staff UUID who will handle the request
+   * @param {string} managerId - Dealer Manager UUID who approves the request
    * @returns {Promise} Response with approved request
    */
-  approve: async (requestId, evmStaffId) => {
+  approveByManager: async (requestId, managerId) => {
     try {
-      console.log("Approving vehicle request:", { requestId, evmStaffId });
+      console.log("Manager approving vehicle request:", {
+        requestId,
+        managerId,
+      });
       const response = await apiClient.post(
-        `/api/VehicleRequest/approve?id=${requestId}&evmStaffId=${evmStaffId}`
+        `/api/VehicleRequest/${requestId}/approve-manager?managerId=${managerId}`
       );
-      console.log("Vehicle request approved successfully:", response.data);
-      return response.data; // Returns { data: {...}, resultStatus: 0, messages: [...], isSuccess: true }
+      console.log(
+        "Vehicle request approved by manager successfully:",
+        response.data
+      );
+      return response.data;
     } catch (error) {
-      console.error("Error approving vehicle request:", error);
+      console.error("Error approving vehicle request by manager:", error);
       throw error;
     }
   },
 
   /**
-   * Delete vehicle request (Dealer Manager deletes/rejects)
+   * Reject vehicle request by Dealer Manager
    * @param {string} requestId - Request UUID
-   * @returns {Promise} Response confirming deletion
+   * @param {string} managerId - Dealer Manager UUID who rejects the request
+   * @param {string} reason - Rejection reason
+   * @returns {Promise} Response with rejected request
    */
-  delete: async (requestId) => {
+  rejectByManager: async (requestId, managerId, reason) => {
     try {
-      console.log("Deleting vehicle request:", requestId);
-      const response = await apiClient.delete(
-        `/api/VehicleRequest/${requestId}`
+      console.log("Manager rejecting vehicle request:", {
+        requestId,
+        managerId,
+        reason,
+      });
+      const response = await apiClient.post(
+        `/api/VehicleRequest/${requestId}/reject-manager?managerId=${managerId}`,
+        { reason }
       );
-      console.log("Vehicle request deleted successfully:", response.data);
-      return response.data; // Returns { data: {...}, resultStatus: 0, messages: [...], isSuccess: true }
+      console.log(
+        "Vehicle request rejected by manager successfully:",
+        response.data
+      );
+      return response.data;
     } catch (error) {
-      console.error("Error deleting vehicle request:", error);
+      console.error("Error rejecting vehicle request by manager:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Approve vehicle request by EVM Staff
+   * @param {string} requestId - Request UUID
+   * @param {string} evmStaffId - EVM Staff UUID who approves the request
+   * @returns {Promise} Response with approved request
+   */
+  approveByEVM: async (requestId, evmStaffId) => {
+    try {
+      console.log("EVM Staff approving vehicle request:", {
+        requestId,
+        evmStaffId,
+      });
+      const response = await apiClient.post(
+        `/api/VehicleRequest/${requestId}/approve-evm?evmStaffId=${evmStaffId}`
+      );
+      console.log(
+        "Vehicle request approved by EVM Staff successfully:",
+        response.data
+      );
+      return response.data;
+    } catch (error) {
+      console.error("Error approving vehicle request by EVM Staff:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Reject vehicle request by EVM Staff
+   * @param {string} requestId - Request UUID
+   * @param {string} evmStaffId - EVM Staff UUID who rejects the request
+   * @param {string} reason - Rejection reason
+   * @returns {Promise} Response with rejected request
+   */
+  rejectByEVM: async (requestId, evmStaffId, reason) => {
+    try {
+      console.log("EVM Staff rejecting vehicle request:", {
+        requestId,
+        evmStaffId,
+        reason,
+      });
+      const response = await apiClient.post(
+        `/api/VehicleRequest/${requestId}/reject-evm?evmStaffId=${evmStaffId}`,
+        { reason }
+      );
+      console.log(
+        "Vehicle request rejected by EVM Staff successfully:",
+        response.data
+      );
+      return response.data;
+    } catch (error) {
+      console.error("Error rejecting vehicle request by EVM Staff:", error);
       throw error;
     }
   },
@@ -119,14 +205,15 @@ export const vehicleRequestApi = {
      */
     pendingForManager: (requests, dealerId) => {
       return requests.filter(
-        (req) => req.dealerId === dealerId && req.status === "Processing"
+        (req) =>
+          req.dealerId === dealerId && req.status === "Pending Manager Approval"
       );
     },
 
     /**
      * Get approved requests for EVM Staff to process
      */
-    approvedForEVM: (requests) => {
+    processingForEVM: (requests) => {
       return requests.filter((req) => req.status === "Processing");
     },
   },

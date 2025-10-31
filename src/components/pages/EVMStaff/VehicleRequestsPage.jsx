@@ -19,9 +19,13 @@ function VehicleRequestsPage() {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [alert, setAlert] = useState({ type: "", message: "" });
-  const [approvingId, setApprovingId] = useState(null);
-  const [selectedRequest, setSelectedRequest] = useState(null);
+  const [processingId, setProcessingId] = useState(null);
+
+  // Modal states
   const [showApproveModal, setShowApproveModal] = useState(false);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [selectedRequest, setSelectedRequest] = useState(null);
+  const [rejectReason, setRejectReason] = useState("");
 
   useEffect(() => {
     fetchRequests();
@@ -59,7 +63,7 @@ function VehicleRequestsPage() {
     }
   };
 
-  const handleApprove = async (request) => {
+  const handleApprove = (request) => {
     setSelectedRequest(request);
     setShowApproveModal(true);
   };
@@ -74,18 +78,19 @@ function VehicleRequestsPage() {
     }
 
     try {
-      setApprovingId(selectedRequest.id);
+      setProcessingId(selectedRequest.id);
       setAlert({ type: "", message: "" });
 
-      const response = await vehicleRequestApi.approve(
+      const response = await vehicleRequestApi.approveByEVM(
         selectedRequest.id,
-        user.id // Current EVM Staff user ID
+        user.id
       );
 
       if (response.isSuccess) {
         setAlert({
           type: "success",
-          message: "Request approved successfully!",
+          message:
+            "Request approved successfully! Vehicles will be allocated to the dealer.",
         });
         setShowApproveModal(false);
         setSelectedRequest(null);
@@ -105,20 +110,81 @@ function VehicleRequestsPage() {
           error.response?.data?.messages?.[0] || "Failed to approve request",
       });
     } finally {
-      setApprovingId(null);
+      setProcessingId(null);
+    }
+  };
+
+  const handleReject = (request) => {
+    setSelectedRequest(request);
+    setRejectReason("");
+    setShowRejectModal(true);
+  };
+
+  const confirmReject = async () => {
+    if (!selectedRequest || !user?.id) {
+      setAlert({
+        type: "error",
+        message: "Missing required information to reject request",
+      });
+      return;
+    }
+
+    if (!rejectReason.trim()) {
+      setAlert({
+        type: "error",
+        message: "Please provide a reason for rejection",
+      });
+      return;
+    }
+
+    try {
+      setProcessingId(selectedRequest.id);
+      setAlert({ type: "", message: "" });
+
+      const response = await vehicleRequestApi.rejectByEVM(
+        selectedRequest.id,
+        user.id,
+        rejectReason.trim()
+      );
+
+      if (response.isSuccess) {
+        setAlert({
+          type: "success",
+          message: "Request rejected successfully!",
+        });
+        setShowRejectModal(false);
+        setSelectedRequest(null);
+        setRejectReason("");
+        // Refresh the list
+        fetchRequests();
+      } else {
+        setAlert({
+          type: "error",
+          message: response.messages?.[0] || "Failed to reject request",
+        });
+      }
+    } catch (error) {
+      console.error("Error rejecting request:", error);
+      setAlert({
+        type: "error",
+        message:
+          error.response?.data?.messages?.[0] || "Failed to reject request",
+      });
+    } finally {
+      setProcessingId(null);
     }
   };
 
   // Get status badge variant
   const getStatusVariant = (status) => {
-    switch (status?.toLowerCase()) {
-      case "pending":
+    switch (status) {
+      case "Pending Manager Approval":
         return "warning";
-      case "processing":
+      case "Processing":
         return "info";
       case "completed":
         return "success";
-      case "rejected":
+      case "Rejected":
         return "danger";
       default:
         return "default";
@@ -128,16 +194,22 @@ function VehicleRequestsPage() {
   // Get status counts for stats
   const getStatusCounts = () => {
     const counts = {
-      pending: 0,
+      pendingManagerApproval: 0,
       processing: 0,
       completed: 0,
       rejected: 0,
     };
 
     requests.forEach((req) => {
-      const status = req.status?.toLowerCase();
-      if (counts.hasOwnProperty(status)) {
-        counts[status]++;
+      const status = req.status;
+      if (status === "Pending Manager Approval") {
+        counts.pendingManagerApproval++;
+      } else if (status === "Processing") {
+        counts.processing++;
+      } else if (status === "completed") {
+        counts.completed++;
+      } else if (status === "Rejected") {
+        counts.rejected++;
       }
     });
 
@@ -192,7 +264,9 @@ function VehicleRequestsPage() {
             <Card>
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-slate-400">Awaiting Approval</p>
+                  <p className="text-sm text-slate-400">
+                    Awaiting Your Approval
+                  </p>
                   <p className="text-2xl font-bold text-white mt-1">
                     {statusCounts.processing}
                   </p>
@@ -327,6 +401,11 @@ function VehicleRequestsPage() {
                               "{req.note}"
                             </p>
                           )}
+                          {req.cancellationReason && (
+                            <p className="text-xs text-red-300 bg-red-500 bg-opacity-10 p-1 rounded">
+                              Reason: "{req.cancellationReason}"
+                            </p>
+                          )}
                         </div>
                       </Table.Cell>
                       <Table.Cell>
@@ -345,7 +424,7 @@ function VehicleRequestsPage() {
                             {req.dealerName || "Unknown Dealer"}
                           </p>
                           <p className="text-xs text-slate-400">
-                            By: {req.createdByName || "Unknown"}
+                            Requested by: {req.createdByName || "Unknown"}
                           </p>
                         </div>
                       </Table.Cell>
@@ -356,17 +435,38 @@ function VehicleRequestsPage() {
                       </Table.Cell>
                       <Table.Cell>
                         {req.status === "Processing" && (
-                          <Button
-                            onClick={() => handleApprove(req)}
-                            disabled={approvingId === req.id}
-                            variant="primary"
-                          >
-                            Approve
-                          </Button>
+                          <div className="flex gap-2">
+                            <Button
+                              onClick={() => handleApprove(req)}
+                              disabled={processingId === req.id}
+                              variant="primary"
+                              className="text-sm px-3 py-2"
+                            >
+                              Approve
+                            </Button>
+                            <Button
+                              onClick={() => handleReject(req)}
+                              disabled={processingId === req.id}
+                              variant="danger"
+                              className="text-sm px-3 py-2"
+                            >
+                              Reject
+                            </Button>
+                          </div>
                         )}
-                        {req.status === "Completed" && (
+                        {req.status === "completed" && (
                           <span className="text-green-400 text-sm">
                             ✓ Completed
+                          </span>
+                        )}
+                        {req.status === "Rejected" && (
+                          <span className="text-red-400 text-sm">
+                            ✗ Rejected
+                          </span>
+                        )}
+                        {req.status === "Pending Manager Approval" && (
+                          <span className="text-yellow-400 text-sm">
+                            ⏳ Awaiting Manager
                           </span>
                         )}
                       </Table.Cell>
@@ -418,15 +518,17 @@ function VehicleRequestsPage() {
                 {selectedRequest.note && (
                   <div className="pt-2 border-t border-slate-600">
                     <span className="text-slate-400 text-sm">Note:</span>
-                    <p className="text-white mt-1">{selectedRequest.note}</p>
+                    <p className="text-white mt-1 italic">
+                      "{selectedRequest.note}"
+                    </p>
                   </div>
                 )}
               </div>
 
               <div className="bg-blue-500 bg-opacity-10 border border-blue-500 rounded-lg p-3">
                 <p className="text-blue-400 text-sm">
-                  ⓘ By approving this request, you confirm that the vehicles
-                  will be allocated to the dealer's inventory.
+                  ⓘ By approving this request, the vehicles will be allocated to
+                  the dealer's inventory.
                 </p>
               </div>
 
@@ -437,17 +539,109 @@ function VehicleRequestsPage() {
                     setShowApproveModal(false);
                     setSelectedRequest(null);
                   }}
-                  disabled={approvingId}
+                  disabled={processingId}
                 >
                   Cancel
                 </Button>
                 <Button
                   variant="primary"
                   onClick={confirmApprove}
-                  isLoading={approvingId === selectedRequest.id}
-                  disabled={approvingId === selectedRequest.id}
+                  isLoading={processingId === selectedRequest.id}
+                  disabled={processingId === selectedRequest.id}
                 >
                   Confirm Approval
+                </Button>
+              </Modal.Footer>
+            </div>
+          )}
+        </Modal>
+
+        {/* Reject Modal with Reason */}
+        <Modal
+          isOpen={showRejectModal}
+          onClose={() => {
+            setShowRejectModal(false);
+            setSelectedRequest(null);
+            setRejectReason("");
+          }}
+          title="Reject Vehicle Request"
+          size="md"
+        >
+          {selectedRequest && (
+            <div className="space-y-4">
+              <div className="bg-slate-700 rounded-lg p-4 space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Request ID:</span>
+                  <span className="text-white font-mono text-sm">
+                    {selectedRequest.id?.substring(0, 8)}...
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Vehicle:</span>
+                  <span className="text-white font-semibold">
+                    {selectedRequest.vehicleModelName || "Unknown"}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Quantity:</span>
+                  <span className="text-white font-semibold">
+                    {selectedRequest.quantity} units
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Dealer:</span>
+                  <span className="text-white">
+                    {selectedRequest.dealerName || "Unknown"}
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="rejectReason"
+                  className="block text-sm font-medium text-slate-300 mb-2"
+                >
+                  Rejection Reason <span className="text-red-400">*</span>
+                </label>
+                <textarea
+                  id="rejectReason"
+                  className="w-full bg-slate-700 border border-slate-600 rounded-lg text-white px-4 py-3 focus:outline-none focus:ring-2 focus:ring-red-500 resize-none"
+                  rows={4}
+                  value={rejectReason}
+                  onChange={(e) => setRejectReason(e.target.value)}
+                  placeholder="Please explain why this request is being rejected..."
+                  disabled={processingId}
+                />
+              </div>
+
+              <div className="bg-red-500 bg-opacity-10 border border-red-500 rounded-lg p-3">
+                <p className="text-red-400 text-sm">
+                  ⚠️ This action will reject the request. The dealer will be
+                  notified with your reason.
+                </p>
+              </div>
+
+              <Modal.Footer>
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    setShowRejectModal(false);
+                    setSelectedRequest(null);
+                    setRejectReason("");
+                  }}
+                  disabled={processingId}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="danger"
+                  onClick={confirmReject}
+                  isLoading={processingId === selectedRequest.id}
+                  disabled={
+                    processingId === selectedRequest.id || !rejectReason.trim()
+                  }
+                >
+                  Confirm Rejection
                 </Button>
               </Modal.Footer>
             </div>

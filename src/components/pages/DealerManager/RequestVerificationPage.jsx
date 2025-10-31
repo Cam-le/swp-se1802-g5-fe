@@ -1,6 +1,14 @@
 import { useState, useEffect } from "react";
 import { DashboardLayout } from "../../layout";
-import { Card, Badge, LoadingSpinner, Alert, Button } from "../../common";
+import {
+  Card,
+  Badge,
+  LoadingSpinner,
+  Alert,
+  Button,
+  Modal,
+} from "../../common";
+import InputField from "../../common/InputField";
 import { useAuth } from "../../../hooks/useAuth";
 import { vehicleRequestApi } from "../../../services/vehicleRequestApi";
 import { formatDateTime } from "../../../utils/helpers";
@@ -10,7 +18,13 @@ function RequestVerificationPage() {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [alert, setAlert] = useState({ type: "", message: "" });
-  const [deletingId, setDeletingId] = useState(null);
+  const [processingId, setProcessingId] = useState(null);
+
+  // Modal states
+  const [showApproveModal, setShowApproveModal] = useState(false);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [selectedRequest, setSelectedRequest] = useState(null);
+  const [rejectReason, setRejectReason] = useState("");
 
   useEffect(() => {
     if (user?.dealer_id) {
@@ -47,58 +61,134 @@ function RequestVerificationPage() {
     }
   };
 
-  const handleDelete = async (requestId) => {
-    if (
-      !window.confirm(
-        "Are you sure you want to deny this request? This action cannot be undone."
-      )
-    ) {
+  const handleApprove = (request) => {
+    setSelectedRequest(request);
+    setShowApproveModal(true);
+  };
+
+  const confirmApprove = async () => {
+    if (!selectedRequest || !user?.id) {
+      setAlert({
+        type: "error",
+        message: "Missing required information to approve request",
+      });
       return;
     }
 
     try {
-      setDeletingId(requestId);
+      setProcessingId(selectedRequest.id);
       setAlert({ type: "", message: "" });
 
-      const response = await vehicleRequestApi.delete(requestId);
+      const response = await vehicleRequestApi.approveByManager(
+        selectedRequest.id,
+        user.id
+      );
 
       if (response.isSuccess) {
         setAlert({
           type: "success",
-          message: "Request denied successfully!",
+          message:
+            "Request approved successfully! Forwarded to EVM Staff for processing.",
         });
+        setShowApproveModal(false);
+        setSelectedRequest(null);
         // Refresh the list
         fetchRequests();
       } else {
         setAlert({
           type: "error",
-          message: response.messages?.[0] || "Failed to deny request",
+          message: response.messages?.[0] || "Failed to approve request",
         });
       }
     } catch (error) {
-      console.error("Error denying request:", error);
+      console.error("Error approving request:", error);
       setAlert({
         type: "error",
         message:
-          error.response?.data?.messages?.[0] || "Failed to deny request",
+          error.response?.data?.messages?.[0] || "Failed to approve request",
       });
     } finally {
-      setDeletingId(null);
+      setProcessingId(null);
+    }
+  };
+
+  const handleReject = (request) => {
+    setSelectedRequest(request);
+    setRejectReason("");
+    setShowRejectModal(true);
+  };
+
+  const confirmReject = async () => {
+    if (!selectedRequest || !user?.id) {
+      setAlert({
+        type: "error",
+        message: "Missing required information to reject request",
+      });
+      return;
+    }
+
+    if (!rejectReason.trim()) {
+      setAlert({
+        type: "error",
+        message: "Please provide a reason for rejection",
+      });
+      return;
+    }
+
+    try {
+      setProcessingId(selectedRequest.id);
+      setAlert({ type: "", message: "" });
+
+      const response = await vehicleRequestApi.rejectByManager(
+        selectedRequest.id,
+        user.id,
+        rejectReason.trim()
+      );
+
+      if (response.isSuccess) {
+        setAlert({
+          type: "success",
+          message: "Request rejected successfully!",
+        });
+        setShowRejectModal(false);
+        setSelectedRequest(null);
+        setRejectReason("");
+        // Refresh the list
+        fetchRequests();
+      } else {
+        setAlert({
+          type: "error",
+          message: response.messages?.[0] || "Failed to reject request",
+        });
+      }
+    } catch (error) {
+      console.error("Error rejecting request:", error);
+      setAlert({
+        type: "error",
+        message:
+          error.response?.data?.messages?.[0] || "Failed to reject request",
+      });
+    } finally {
+      setProcessingId(null);
     }
   };
 
   const getStatusBadge = (status) => {
     const variants = {
-      Pending: "warning",
+      "Pending Manager Approval": "warning",
       Processing: "info",
-      Completed: "success",
+      completed: "success",
       Rejected: "danger",
     };
     return variants[status] || "default";
   };
 
-  const pendingRequests = requests.filter((r) => r.status === "Processing");
-  const otherRequests = requests.filter((r) => r.status !== "Processing");
+  const pendingRequests = requests.filter(
+    (r) => r.status === "Pending Manager Approval"
+  );
+  const otherRequests = requests.filter(
+    (r) => r.status !== "Pending Manager Approval"
+  );
 
   return (
     <DashboardLayout>
@@ -122,7 +212,7 @@ function RequestVerificationPage() {
           {/* Pending Requests */}
           <div className="mb-8">
             <h2 className="text-xl font-semibold text-white mb-4">
-              Pending Requests ({pendingRequests.length})
+              Pending Approval ({pendingRequests.length})
             </h2>
             {pendingRequests.length === 0 ? (
               <Card>
@@ -154,12 +244,6 @@ function RequestVerificationPage() {
                         </span>
                       </div>
                       <div className="text-slate-300">
-                        Vehicle ID:{" "}
-                        <span className="text-white font-mono text-xs">
-                          {req.vehicleId?.substring(0, 8)}...
-                        </span>
-                      </div>
-                      <div className="text-slate-300">
                         Quantity:{" "}
                         <span className="text-white font-semibold">
                           {req.quantity}
@@ -173,7 +257,10 @@ function RequestVerificationPage() {
                       </div>
                       {req.note && (
                         <div className="text-slate-300">
-                          Note: <span className="text-white">{req.note}</span>
+                          Note:{" "}
+                          <span className="text-white italic">
+                            "{req.note}"
+                          </span>
                         </div>
                       )}
                       <div className="text-slate-400 text-xs">
@@ -181,15 +268,22 @@ function RequestVerificationPage() {
                       </div>
                     </div>
 
-                    <div className="mt-4">
+                    <div className="mt-4 flex gap-2">
                       <Button
-                        variant="warning"
-                        onClick={() => handleDelete(req.id)}
-                        disabled={deletingId === req.id}
-                        isLoading={deletingId === req.id}
-                        fullWidth
+                        variant="primary"
+                        onClick={() => handleApprove(req)}
+                        disabled={processingId === req.id}
+                        className="flex-1"
                       >
-                        {deletingId === req.id ? "Denying..." : "Deny Request"}
+                        Approve
+                      </Button>
+                      <Button
+                        variant="danger"
+                        onClick={() => handleReject(req)}
+                        disabled={processingId === req.id}
+                        className="flex-1"
+                      >
+                        Reject
                       </Button>
                     </div>
                   </Card>
@@ -198,7 +292,7 @@ function RequestVerificationPage() {
             )}
           </div>
 
-          {/* Other Requests History */}
+          {/* Request History */}
           <div>
             <h2 className="text-xl font-semibold text-white mb-4">
               Request History ({otherRequests.length})
@@ -238,7 +332,18 @@ function RequestVerificationPage() {
                       </div>
                       {req.note && (
                         <div className="text-slate-300">
-                          Note: <span className="text-white">{req.note}</span>
+                          Note:{" "}
+                          <span className="text-white italic">
+                            "{req.note}"
+                          </span>
+                        </div>
+                      )}
+                      {req.cancellationReason && (
+                        <div className="text-red-300 bg-red-500 bg-opacity-10 p-2 rounded">
+                          Reason:{" "}
+                          <span className="text-red-200">
+                            "{req.cancellationReason}"
+                          </span>
                         </div>
                       )}
                       <div className="text-slate-400 text-xs">
@@ -252,6 +357,170 @@ function RequestVerificationPage() {
           </div>
         </>
       )}
+
+      {/* Approve Confirmation Modal */}
+      <Modal
+        isOpen={showApproveModal}
+        onClose={() => {
+          setShowApproveModal(false);
+          setSelectedRequest(null);
+        }}
+        title="Approve Vehicle Request"
+        size="md"
+      >
+        {selectedRequest && (
+          <div className="space-y-4">
+            <div className="bg-slate-700 rounded-lg p-4 space-y-2">
+              <div className="flex justify-between">
+                <span className="text-slate-400">Request ID:</span>
+                <span className="text-white font-mono text-sm">
+                  {selectedRequest.id?.substring(0, 8)}...
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Vehicle:</span>
+                <span className="text-white font-semibold">
+                  {selectedRequest.vehicleModelName || "Unknown"}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Quantity:</span>
+                <span className="text-white font-semibold">
+                  {selectedRequest.quantity} units
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Created by:</span>
+                <span className="text-white">
+                  {selectedRequest.createdByName || "Unknown"}
+                </span>
+              </div>
+              {selectedRequest.note && (
+                <div className="pt-2 border-t border-slate-600">
+                  <span className="text-slate-400 text-sm">Note:</span>
+                  <p className="text-white mt-1 italic">
+                    "{selectedRequest.note}"
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="bg-blue-500 bg-opacity-10 border border-blue-500 rounded-lg p-3">
+              <p className="text-blue-400 text-sm">
+                ⓘ By approving this request, it will be forwarded to EVM Staff
+                for final processing and inventory allocation.
+              </p>
+            </div>
+
+            <Modal.Footer>
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setShowApproveModal(false);
+                  setSelectedRequest(null);
+                }}
+                disabled={processingId}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                onClick={confirmApprove}
+                isLoading={processingId === selectedRequest.id}
+                disabled={processingId === selectedRequest.id}
+              >
+                Confirm Approval
+              </Button>
+            </Modal.Footer>
+          </div>
+        )}
+      </Modal>
+
+      {/* Reject Modal with Reason */}
+      <Modal
+        isOpen={showRejectModal}
+        onClose={() => {
+          setShowRejectModal(false);
+          setSelectedRequest(null);
+          setRejectReason("");
+        }}
+        title="Reject Vehicle Request"
+        size="md"
+      >
+        {selectedRequest && (
+          <div className="space-y-4">
+            <div className="bg-slate-700 rounded-lg p-4 space-y-2">
+              <div className="flex justify-between">
+                <span className="text-slate-400">Request ID:</span>
+                <span className="text-white font-mono text-sm">
+                  {selectedRequest.id?.substring(0, 8)}...
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Vehicle:</span>
+                <span className="text-white font-semibold">
+                  {selectedRequest.vehicleModelName || "Unknown"}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Quantity:</span>
+                <span className="text-white font-semibold">
+                  {selectedRequest.quantity} units
+                </span>
+              </div>
+            </div>
+
+            <div>
+              <label
+                htmlFor="rejectReason"
+                className="block text-sm font-medium text-slate-300 mb-2"
+              >
+                Rejection Reason <span className="text-red-400">*</span>
+              </label>
+              <textarea
+                id="rejectReason"
+                className="w-full bg-slate-700 border border-slate-600 rounded-lg text-white px-4 py-3 focus:outline-none focus:ring-2 focus:ring-red-500 resize-none"
+                rows={4}
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                placeholder="Please explain why this request is being rejected..."
+                disabled={processingId}
+              />
+            </div>
+
+            <div className="bg-red-500 bg-opacity-10 border border-red-500 rounded-lg p-3">
+              <p className="text-red-400 text-sm">
+                ⚠️ This action will reject the request. The staff member will be
+                notified with your reason.
+              </p>
+            </div>
+
+            <Modal.Footer>
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setShowRejectModal(false);
+                  setSelectedRequest(null);
+                  setRejectReason("");
+                }}
+                disabled={processingId}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                onClick={confirmReject}
+                isLoading={processingId === selectedRequest.id}
+                disabled={
+                  processingId === selectedRequest.id || !rejectReason.trim()
+                }
+              >
+                Confirm Rejection
+              </Button>
+            </Modal.Footer>
+          </div>
+        )}
+      </Modal>
     </DashboardLayout>
   );
 }
