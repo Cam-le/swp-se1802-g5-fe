@@ -180,7 +180,7 @@ function VehicleRequestsPage() {
     switch (status) {
       case "Pending Manager Approval":
         return "warning";
-      case "Processing":
+      case "Pending EVM Allocation":
         return "info";
       case "completed":
         return "success";
@@ -195,7 +195,7 @@ function VehicleRequestsPage() {
   const getStatusCounts = () => {
     const counts = {
       pendingManagerApproval: 0,
-      processing: 0,
+      pendingEVMAllocation: 0,
       completed: 0,
       rejected: 0,
     };
@@ -204,8 +204,8 @@ function VehicleRequestsPage() {
       const status = req.status;
       if (status === "Pending Manager Approval") {
         counts.pendingManagerApproval++;
-      } else if (status === "Processing") {
-        counts.processing++;
+      } else if (status === "Pending EVM Allocation") {
+        counts.pendingEVMAllocation++;
       } else if (status === "completed") {
         counts.completed++;
       } else if (status === "Rejected") {
@@ -217,9 +217,6 @@ function VehicleRequestsPage() {
   };
 
   const statusCounts = getStatusCounts();
-  const processingRequests = requests.filter(
-    (req) => req.status === "Processing"
-  );
 
   return (
     <DashboardLayout>
@@ -268,7 +265,7 @@ function VehicleRequestsPage() {
                     Awaiting Your Approval
                   </p>
                   <p className="text-2xl font-bold text-white mt-1">
-                    {statusCounts.processing}
+                    {statusCounts.pendingEVMAllocation}
                   </p>
                 </div>
                 <div className="w-12 h-12 bg-yellow-500 bg-opacity-20 rounded-lg flex items-center justify-center">
@@ -434,7 +431,7 @@ function VehicleRequestsPage() {
                         </Badge>
                       </Table.Cell>
                       <Table.Cell>
-                        {req.status === "Processing" && (
+                        {req.status === "Pending EVM Allocation" && (
                           <div className="flex gap-2">
                             <Button
                               onClick={() => handleApprove(req)}

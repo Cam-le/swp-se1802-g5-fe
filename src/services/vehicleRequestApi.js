@@ -214,7 +214,7 @@ export const vehicleRequestApi = {
      * Get approved requests for EVM Staff to process
      */
     processingForEVM: (requests) => {
-      return requests.filter((req) => req.status === "Processing");
+      return requests.filter((req) => req.status === "Pending EVM Allocation");
     },
   },
 };
