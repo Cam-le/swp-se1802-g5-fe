@@ -54,6 +54,7 @@ export const vehicleApi = {
         batteryCapacity: vehicleData.batteryCapacity,
         rangePerCharge: vehicleData.rangePerCharge,
         basePrice: vehicleData.basePrice,
+        finalPrice: vehicleData.finalPrice,
         launchDate: vehicleData.launchDate,
       };
 
