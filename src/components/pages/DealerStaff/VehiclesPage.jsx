@@ -15,6 +15,7 @@ import {
 } from "../../common";
 import { formatCurrency, formatShortDate } from "../../../utils/helpers";
 import { vehicleApi } from "../../../services/vehicleApi";
+import { orderApi, customerApi } from "../../../services/mockApi";
 import { useAuth } from "../../../hooks/useAuth";
 import CarDetail from "./CarDetail";
 
@@ -48,6 +49,45 @@ const getStockVariant = (stock) => {
 };
 
 function VehiclesPage() {
+  // Order modal state
+  const [showOrderModal, setShowOrderModal] = useState(false);
+  const [orderVehicle, setOrderVehicle] = useState(null);
+  const [orderForm, setOrderForm] = useState({
+    customerName: '',
+    customerPhone: '',
+    customerAddress: '',
+    customerRequest: '',
+    paymentType: 'full',
+    quantity: 1,
+  });
+  const [orderSubmitting, setOrderSubmitting] = useState(false);
+  const [orderError, setOrderError] = useState('');
+
+  const openOrderModal = (vehicle) => {
+    setOrderVehicle(vehicle);
+    setOrderForm({
+      customerName: '',
+      customerPhone: '',
+      customerAddress: '',
+      customerRequest: '',
+      paymentType: 'full',
+      quantity: 1,
+    });
+    setOrderError('');
+    setShowOrderModal(true);
+  };
+  const closeOrderModal = () => {
+    setShowOrderModal(false);
+    setOrderVehicle(null);
+    setOrderError('');
+  };
+  const handleOrderInputChange = (e) => {
+    const { name, value, type } = e.target;
+    setOrderForm((prev) => ({
+      ...prev,
+      [name]: type === 'number' ? Number(value) : value,
+    }));
+  };
   // Car detail view state
   const [detailVehicle, setDetailVehicle] = useState(null);
   const { user } = useAuth();
@@ -329,6 +369,75 @@ function VehiclesPage() {
     }
   };
 
+  // Order creation logic (adapted from OrdersPage)
+  const [customers, setCustomers] = useState([]); // Add this state
+  const [orders, setOrders] = useState([]); // Add this state if you want to update orders list
+  useEffect(() => {
+    // Fetch customers for this staff
+    const fetchCustomers = async () => {
+      if (!user?.id) return;
+      try {
+        const data = await customerApi.getAll(user.id);
+        setCustomers(Array.isArray(data) ? data : []);
+      } catch (err) { }
+    };
+    fetchCustomers();
+  }, [user?.id]);
+
+  const handleOrderSubmit = async (e) => {
+    e.preventDefault();
+    setOrderError("");
+    setOrderSubmitting(true);
+    try {
+      // Validate required fields
+      if (!orderForm.customerName.trim() || !orderForm.customerPhone.trim() || !orderForm.customerAddress.trim()) {
+        setOrderError("Please fill in all required customer information.");
+        setOrderSubmitting(false);
+        return;
+      }
+      // Find customer by name, phone, address
+      let customer = customers.find(c =>
+        c.full_name.trim().toLowerCase() === orderForm.customerName.trim().toLowerCase() &&
+        c.phone.trim() === orderForm.customerPhone.trim() &&
+        c.address.trim().toLowerCase() === orderForm.customerAddress.trim().toLowerCase()
+      );
+      let customer_id = customer ? customer.id : null;
+      // If not found, create new customer
+      if (!customer_id) {
+        const newCustomer = await customerApi.create({
+          full_name: orderForm.customerName.trim(),
+          phone: orderForm.customerPhone.trim(),
+          address: orderForm.customerAddress.trim(),
+          dealer_staff_id: user?.id,
+        });
+        customer_id = newCustomer.id;
+        setCustomers(prev => [newCustomer, ...prev]);
+      }
+      // Prepare order payload
+      const qty = orderForm.quantity || 1;
+      const price = orderVehicle ? (orderVehicle.basePrice || orderVehicle.base_price || 0) : 0;
+      const payload = {
+        customer_id,
+        dealer_staff_id: user?.id,
+        dealer_id: user?.dealer_id,
+        vehicle_id: orderVehicle.id,
+        total_amount: price * qty,
+        payment_type: orderForm.paymentType,
+        order_status: "confirmed",
+        quantity: qty,
+        customer_request: orderForm.customerRequest,
+      };
+      const created = await orderApi.create(payload);
+      setOrders(prev => [created, ...prev]);
+      setOrderError("");
+      setOrderSubmitting(false);
+      setShowOrderModal(false);
+    } catch (err) {
+      setOrderError("Failed to create order. Please try again.");
+      setOrderSubmitting(false);
+    }
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -393,16 +502,16 @@ function VehiclesPage() {
                 <LoadingSpinner size="lg" text="Loading vehicles..." />
               </div>
             ) : detailVehicle ? (
-              <div className="flex flex-col md:flex-row bg-slate-800 rounded-2xl border-2 border-slate-700 p-16 w-full min-h-[480px] mx-auto mt-8 shadow-2xl">
+              <div className="flex flex-col md:flex-row bg-slate-800 rounded-xl border border-slate-700 p-8 max-w-5xl mx-auto mt-8">
                 <img
                   src={detailVehicle.imageUrl}
                   alt={detailVehicle.modelName}
-                  className="w-full max-w-2xl h-[32rem] object-cover rounded-2xl bg-slate-700 mb-8 md:mb-0 md:mr-16 shadow-lg border border-slate-600"
+                  className="w-full max-w-md h-80 object-cover rounded-lg bg-slate-700 mb-6 md:mb-0 md:mr-8"
                   onError={(e) => {
-                    e.target.src = "https://via.placeholder.com/800x480?text=No+Image";
+                    e.target.src = "https://via.placeholder.com/400x300?text=No+Image";
                   }}
                 />
-                <div className="flex-1 flex flex-col gap-6 justify-center">
+                <div className="flex-1 flex flex-col gap-2">
                   <h2 className="text-4xl font-bold text-white mb-2">
                     {detailVehicle.modelName} <span className="text-2xl text-slate-400">- {detailVehicle.version}</span>
                   </h2>
@@ -531,6 +640,13 @@ function VehiclesPage() {
                         </Button>
                         <Button variant="secondary" className="w-full" onClick={() => setDetailVehicle(vehicle)}>
                           Detail
+                        </Button>
+                        <Button
+                          variant="primary"
+                          className="w-full !bg-blue-500 hover:!bg-blue-600 text-white font-semibold rounded transition-colors duration-150"
+                          onClick={() => openOrderModal(vehicle)}
+                        >
+                          Buy
                         </Button>
                       </div>
                     </div>
@@ -721,6 +837,58 @@ function VehiclesPage() {
               </Button>
             </Modal.Footer>
           </form>
+        </Modal>
+
+        {/* Order Modal */}
+        <Modal isOpen={showOrderModal} onClose={closeOrderModal} title="Create Order" size="lg">
+          {orderVehicle && (
+            <form className="space-y-6" onSubmit={handleOrderSubmit}>
+              {/* Vehicle Info */}
+              <div className="flex flex-col md:flex-row gap-6 items-center border-b border-slate-700 pb-4 mb-4">
+                <img
+                  src={orderVehicle.imageUrl}
+                  alt={orderVehicle.modelName}
+                  className="w-32 h-24 object-cover rounded bg-slate-700 border border-slate-600"
+                  onError={e => (e.target.src = "https://via.placeholder.com/128x96?text=No+Image")}
+                />
+                <div className="flex-1">
+                  <div className="font-bold text-lg text-white">{orderVehicle.modelName} <span className="text-slate-400 font-normal">{orderVehicle.version}</span></div>
+                  <div className="text-slate-300 text-sm">{orderVehicle.category}</div>
+                  <div className="text-slate-400 text-sm mt-1">Đơn giá: <span className="font-semibold text-white">{formatCurrency(orderVehicle.basePrice)}</span></div>
+                </div>
+                <div className="text-slate-400 text-sm">Số lượng: <input type="number" min="1" name="quantity" value={orderForm.quantity} onChange={handleOrderInputChange} className="w-16 px-2 py-1 rounded bg-slate-700 text-white border border-slate-600" /></div>
+              </div>
+              {/* Payment Type */}
+              <div>
+                <div className="font-semibold text-white mb-2">Chọn phương thức thanh toán</div>
+                <div className="flex flex-col gap-2">
+                  <label className="flex items-center gap-2 text-slate-300">
+                    <input type="radio" name="paymentType" value="full" checked={orderForm.paymentType === 'full'} onChange={handleOrderInputChange} className="accent-blue-500" />
+                    Thanh toán toàn bộ
+                  </label>
+                  <label className="flex items-center gap-2 text-slate-300">
+                    <input type="radio" name="paymentType" value="installment" checked={orderForm.paymentType === 'installment'} onChange={handleOrderInputChange} className="accent-blue-500" />
+                    Trả góp/Installment
+                  </label>
+                </div>
+              </div>
+              {/* Customer Info */}
+              <div>
+                <div className="font-semibold text-white mb-2">Nhập thông tin đơn hàng</div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <InputField id="customerName" name="customerName" label="Họ tên" value={orderForm.customerName} onChange={handleOrderInputChange} placeholder="Nhập họ tên khách hàng" required />
+                  <InputField id="customerPhone" name="customerPhone" label="Số điện thoại" value={orderForm.customerPhone} onChange={handleOrderInputChange} placeholder="Nhập số điện thoại" required />
+                  <InputField id="customerAddress" name="customerAddress" label="Địa chỉ" value={orderForm.customerAddress} onChange={handleOrderInputChange} placeholder="Nhập địa chỉ" required />
+                  <InputField id="customerRequest" name="customerRequest" label="Yêu cầu" value={orderForm.customerRequest} onChange={handleOrderInputChange} placeholder="Yêu cầu thêm (nếu có)" />
+                </div>
+              </div>
+              {orderError && <div className="text-red-400 text-sm">{orderError}</div>}
+              <div className="flex justify-end gap-3 pt-4 border-t border-slate-700">
+                <Button variant="secondary" type="button" onClick={closeOrderModal}>Hủy</Button>
+                <Button variant="primary" type="submit" isLoading={orderSubmitting}>Purchase</Button>
+              </div>
+            </form>
+          )}
         </Modal>
       </div>
     </DashboardLayout>
