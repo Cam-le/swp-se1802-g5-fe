@@ -1,11 +1,35 @@
 import { useState, useRef, useEffect } from "react";
 import { useAuth } from "../../hooks/useAuth";
 import { getRoleName } from "../../constants";
+import { dealerApi } from "../../services/dealerApi";
 
 function Navbar() {
   const { user, logout } = useAuth();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [dealerName, setDealerName] = useState(null);
+  const [loadingDealer, setLoadingDealer] = useState(false);
   const dropdownRef = useRef(null);
+
+  // Fetch dealer name if user is Dealer Staff or Dealer Manager
+  useEffect(() => {
+    const fetchDealerName = async () => {
+      if (user?.dealer_id && (user.role_id === 1 || user.role_id === 2)) {
+        setLoadingDealer(true);
+        try {
+          const response = await dealerApi.getById(user.dealer_id);
+          if (response.isSuccess && response.data) {
+            setDealerName(response.data.name);
+          }
+        } catch (error) {
+          console.error("Error fetching dealer name:", error);
+        } finally {
+          setLoadingDealer(false);
+        }
+      }
+    };
+
+    fetchDealerName();
+  }, [user?.dealer_id, user?.role_id]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -28,6 +52,8 @@ function Navbar() {
       .toUpperCase()
       .substring(0, 2);
   };
+
+  const showDealerHeader = user?.role_id === 1 || user?.role_id === 2;
 
   return (
     <nav className="bg-slate-800 border-b border-slate-700 sticky top-0 z-40">
@@ -57,6 +83,54 @@ function Navbar() {
               <p className="text-xs text-slate-400">
                 {getRoleName(user?.role_id)}
               </p>
+              {showDealerHeader && (
+                <p className="text-xs text-blue-400 mt-0.5">
+                  {loadingDealer ? (
+                    <span className="flex items-center gap-1">
+                      <svg
+                        className="animate-spin h-3 w-3"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        />
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        />
+                      </svg>
+                      Loading dealer...
+                    </span>
+                  ) : dealerName ? (
+                    <span className="flex items-center gap-1">
+                      <svg
+                        className="w-3 h-3"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                        />
+                      </svg>
+                      {dealerName}
+                    </span>
+                  ) : (
+                    "Dealer information unavailable"
+                  )}
+                </p>
+              )}
             </div>
           </div>
 
@@ -124,9 +198,22 @@ function Navbar() {
                       {user?.full_name}
                     </p>
                     <p className="text-xs text-slate-400 mt-1">{user?.email}</p>
-                    {user?.dealer_name && (
-                      <p className="text-xs text-blue-400 mt-1">
-                        {user.dealer_name}
+                    {showDealerHeader && dealerName && (
+                      <p className="text-xs text-blue-400 mt-1 flex items-center gap-1">
+                        <svg
+                          className="w-3 h-3"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                          />
+                        </svg>
+                        {dealerName}
                       </p>
                     )}
                   </div>
