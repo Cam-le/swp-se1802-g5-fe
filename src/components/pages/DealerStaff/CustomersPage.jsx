@@ -231,6 +231,18 @@ function CustomersPage() {
                                         <InputField id="email" name="email" label="Email" value={editData.email} onChange={handleEditInputChange} error={editErrors.email} />
                                         <InputField id="phone" name="phone" label="Phone" value={editData.phone} onChange={handleEditInputChange} error={editErrors.phone} />
                                         <InputField id="address" name="address" label="Address" value={editData.address} onChange={handleEditInputChange} error={editErrors.address} />
+                                        <div className="flex items-center gap-4">
+                                            <label className="text-slate-400 text-sm">Status:</label>
+                                            <select
+                                                name="is_active"
+                                                value={editData.is_active ? "Active" : "Inactive"}
+                                                onChange={e => setEditData(prev => ({ ...prev, is_active: e.target.value === "Active" }))}
+                                                className="bg-slate-700 text-white px-3 py-2 rounded border border-slate-600"
+                                            >
+                                                <option value="Active">Active</option>
+                                                <option value="Inactive">Inactive</option>
+                                            </select>
+                                        </div>
                                         {editAlert.message && <Alert type={editAlert.type}>{editAlert.message}</Alert>}
                                         <div className="flex items-center justify-end space-x-2">
                                             <Button type="button" variant="secondary" onClick={closeDetailsModal} disabled={isEditSubmitting}>Cancel</Button>

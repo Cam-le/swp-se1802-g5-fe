@@ -3,10 +3,11 @@ import { DashboardLayout } from "../../layout";
 import { Card, Modal, InputField, Select, Alert } from "../../common";
 import VehicleSelectRich from "../../common/VehicleSelectRich";
 import { useAuth } from "../../../hooks/useAuth";
-import { MOCK_APPOINTMENTS } from "../../../data/mockData";
+import { MOCK_USERS } from "../../../data/mockData";
 import { formatDateTime } from "../../../utils/helpers";
 import { customerApi } from "../../../services/mockApi";
 import { vehicleApi } from "../../../services/vehicleApi";
+import { appointmentApi } from '../../../services/mockApi';
 
 
 function AppointmentsPage() {
@@ -14,28 +15,30 @@ function AppointmentsPage() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [customers, setCustomers] = useState([]);
     const [vehicles, setVehicles] = useState([]);
-    const [appointments, setAppointments] = useState(MOCK_APPOINTMENTS);
+    const [appointments, setAppointments] = useState([]); // Remove MOCK_APPOINTMENTS
     const [formData, setFormData] = useState({ customer_id: '', vehicle_id: '', appointment_datetime: '', note: '' });
     const [formErrors, setFormErrors] = useState({});
     const [alert, setAlert] = useState({ type: '', message: '' });
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
-        // Fetch customers and vehicles for selection
+        // Fetch customers, vehicles, and appointments for selection and display
         async function fetchData() {
             try {
-                const [custs, vehs] = await Promise.all([
+                const [custs, vehs, appts] = await Promise.all([
                     customerApi.getAll(user?.id),
-                    vehicleApi.getAll(user?.id)
+                    vehicleApi.getAll(user?.id),
+                    appointmentApi.getAll(user?.id)
                 ]);
                 setCustomers(Array.isArray(custs) ? custs : []);
                 let vList = Array.isArray(vehs) ? vehs : (vehs?.data || []);
                 setVehicles(vList.filter(v => v.status === 'Available' && (v.currentStock || v.stock || 0) > 0));
+                setAppointments(Array.isArray(appts) ? appts : []);
             } catch (err) {
-                setAlert({ type: 'error', message: 'Failed to load customers or vehicles' });
+                setAlert({ type: 'error', message: 'Failed to load customers, vehicles, or appointments' });
             }
         }
-        if (isModalOpen) fetchData();
+        fetchData();
     }, [isModalOpen, user?.id]);
 
     const openModal = () => {
@@ -64,28 +67,29 @@ function AppointmentsPage() {
         return Object.keys(errors).length === 0;
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         if (!validateForm()) {
-            setAlert({ type: 'error', message: 'Please fix the errors below' });
+            setAlert({ type: 'error', message: 'Please add the missing fields below' });
             return;
         }
         setIsSubmitting(true);
-        // Simulate API call
-        setTimeout(() => {
-            const newAppointment = {
-                id: 'A' + (appointments.length + 1),
+        try {
+            const newAppointment = await appointmentApi.create({
                 customer_id: formData.customer_id,
                 vehicle_id: formData.vehicle_id,
-                staff_id: user?.id,
+                dealer_staff_id: user?.id,
                 appointment_datetime: formData.appointment_datetime,
                 note: formData.note,
-                status: 'scheduled',
-            };
+            });
             setAppointments((prev) => [newAppointment, ...prev]);
             setAlert({ type: 'success', message: 'Appointment added successfully' });
             setTimeout(() => closeModal(), 800);
-        }, 800);
+        } catch (err) {
+            setAlert({ type: 'error', message: 'Failed to add appointment' });
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     return (
@@ -107,24 +111,29 @@ function AppointmentsPage() {
                 </div>
                 {/* Appointments Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {appointments.map((a) => (
-                        <Card key={a.id} hover>
-                            <div className="flex items-center justify-between mb-2">
-                                <div>
-                                    <div className="text-slate-400 text-sm">Appointment ID</div>
-                                    <div className="text-white font-medium">{a.id}</div>
+                    {appointments.map((a) => {
+                        const customer = customers.find(c => c.id === a.customer_id);
+                        const vehicle = vehicles.find(v => v.id === a.vehicle_id);
+                        const staff = MOCK_USERS.find(u => u.id === (a.dealer_staff_id || a.staff_id));
+                        return (
+                            <Card key={a.id} hover>
+                                <div className="flex items-center justify-between mb-2">
+                                    <div>
+                                        <div className="text-slate-400 text-sm">Appointment ID</div>
+                                        <div className="text-white font-medium">{a.id}</div>
+                                    </div>
+                                    <div className="text-right">
+                                        <div className="text-slate-400 text-sm">Date & Time</div>
+                                        <div className="text-white font-semibold">{formatDateTime(a.appointment_datetime)}</div>
+                                    </div>
                                 </div>
-                                <div className="text-right">
-                                    <div className="text-slate-400 text-sm">Date & Time</div>
-                                    <div className="text-white font-semibold">{formatDateTime(a.appointment_datetime)}</div>
-                                </div>
-                            </div>
-                            <div className="text-slate-300 text-sm mb-2">Customer: <span className="text-white">{a.customer_id}</span></div>
-                            <div className="text-slate-300 text-sm mb-2">Vehicle: <span className="text-white">{a.vehicle_id}</span></div>
-                            <div className="text-slate-300 text-sm mb-2">Staff: <span className="text-white">{a.staff_id}</span></div>
-                            <div className="text-slate-400 text-sm mt-2">Status: <span className="text-white capitalize">{a.status}</span></div>
-                        </Card>
-                    ))}
+                                <div className="text-slate-300 text-sm mb-2">Customer: <span className="text-white">{customer ? customer.full_name : a.customer_id}</span></div>
+                                <div className="text-slate-300 text-sm mb-2">Vehicle: <span className="text-white">{vehicle ? `${vehicle.model_name || vehicle.modelName} ${vehicle.version || ''}` : a.vehicle_id}</span></div>
+                                <div className="text-slate-300 text-sm mb-2">Staff: <span className="text-white">{staff ? staff.full_name : (a.dealer_staff_id || a.staff_id)}</span></div>
+                                <div className="text-slate-400 text-sm mt-2">Status: <span className="text-white capitalize">{a.status}</span></div>
+                            </Card>
+                        );
+                    })}
                 </div>
 
                 {/* Add Appointment Modal */}
@@ -138,7 +147,7 @@ function AppointmentsPage() {
                                 label="Customer"
                                 value={formData.customer_id}
                                 onChange={handleInputChange}
-                                options={customers.map((c) => ({ value: c.id, label: c.full_name }))}
+                                options={customers.filter(c => c.is_active !== false).map((c) => ({ value: c.id, label: c.full_name }))}
                                 error={formErrors.customer_id}
                                 placeholder="Select customer"
                             />

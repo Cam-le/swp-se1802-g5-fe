@@ -119,6 +119,12 @@ function VehiclesPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [alert, setAlert] = useState({ type: "", message: "" });
 
+  // Feedback modal state
+  const [showFeedbackPrompt, setShowFeedbackPrompt] = useState(false);
+  const [showFeedbackForm, setShowFeedbackForm] = useState(false);
+  const [feedbackText, setFeedbackText] = useState("");
+  const [showThankYou, setShowThankYou] = useState(false);
+
   // Fetch vehicles on mount
   useEffect(() => {
     if (user?.id) {
@@ -404,12 +410,14 @@ function VehiclesPage() {
       let customer_id = customer ? customer.id : null;
       // If not found, create new customer
       if (!customer_id) {
-        const newCustomer = await customerApi.create({
+        const payload = {
           full_name: orderForm.customerName.trim(),
           phone: orderForm.customerPhone.trim(),
           address: orderForm.customerAddress.trim(),
           dealer_staff_id: user?.id,
-        });
+          is_active: true, // Always set new customer as Active
+        };
+        const newCustomer = await customerApi.create(payload);
         customer_id = newCustomer.id;
         setCustomers(prev => [newCustomer, ...prev]);
       }
@@ -432,10 +440,30 @@ function VehiclesPage() {
       setOrderError("");
       setOrderSubmitting(false);
       setShowOrderModal(false);
+      setShowFeedbackPrompt(true); // Show feedback prompt after purchase
     } catch (err) {
       setOrderError("Failed to create order. Please try again.");
       setOrderSubmitting(false);
     }
+  };
+
+  // Feedback handlers
+  const handleFeedbackNo = () => {
+    setShowFeedbackPrompt(false);
+    setShowFeedbackForm(false);
+    setFeedbackText("");
+    setShowThankYou(false);
+  };
+  const handleFeedbackYes = () => {
+    setShowFeedbackPrompt(false);
+    setShowFeedbackForm(true);
+    setFeedbackText("");
+    setShowThankYou(false);
+  };
+  const handleSendFeedback = (e) => {
+    e.preventDefault();
+    setShowFeedbackForm(false);
+    setShowThankYou(true);
   };
 
   return (
@@ -889,6 +917,41 @@ function VehiclesPage() {
               </div>
             </form>
           )}
+        </Modal>
+
+        {/* Feedback Prompt Modal */}
+        <Modal isOpen={showFeedbackPrompt} onClose={handleFeedbackNo} title="Feedback">
+          <div className="space-y-4 text-center">
+            <div className="text-lg font-semibold text-white">Would you like to leave feedback about your experience?</div>
+            <div className="flex justify-center gap-4 mt-6">
+              <Button variant="secondary" onClick={handleFeedbackNo}>No, thanks</Button>
+              <Button variant="primary" onClick={handleFeedbackYes}>Yes</Button>
+            </div>
+          </div>
+        </Modal>
+        {/* Feedback Form Modal */}
+        <Modal isOpen={showFeedbackForm} onClose={handleFeedbackNo} title="Leave Feedback">
+          <form onSubmit={handleSendFeedback} className="space-y-4">
+            <div className="text-lg font-semibold text-white">Please write your feedback about the dealer staff:</div>
+            <textarea
+              className="w-full min-h-[100px] p-3 rounded bg-slate-700 text-white border border-slate-600 focus:outline-none"
+              value={feedbackText}
+              onChange={e => setFeedbackText(e.target.value)}
+              placeholder="Type your feedback here..."
+              required
+            />
+            <div className="flex justify-end gap-3">
+              <Button variant="secondary" type="button" onClick={handleFeedbackNo}>Cancel</Button>
+              <Button variant="primary" type="submit">Send</Button>
+            </div>
+          </form>
+        </Modal>
+        {/* Thank You Note Modal */}
+        <Modal isOpen={showThankYou} onClose={handleFeedbackNo} title="Thank You">
+          <div className="text-lg font-semibold text-white text-center py-8">Thank you for sending your feedback!</div>
+          <div className="flex justify-center">
+            <Button variant="primary" onClick={handleFeedbackNo}>Close</Button>
+          </div>
         </Modal>
       </div>
     </DashboardLayout>
