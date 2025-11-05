@@ -5,6 +5,7 @@ import { useAuth } from "../../../hooks/useAuth";
 import { formatCurrency, formatDateTime } from "../../../utils/helpers";
 import { orderApi, customerApi } from "../../../services/mockApi";
 import { vehicleApi } from "../../../services/vehicleApi";
+import OrdersDetail from './OrdersDetail';
 
 
 function OrdersPage() {
@@ -37,6 +38,8 @@ function OrdersPage() {
     const [formData, setFormData] = useState({ customer_id: "", vehicle_id: "", payment_type: "full" });
     const [phoneError, setPhoneError] = useState("");
     const [alert, setAlert] = useState({ type: "", message: "" });
+    const [showOrderDetail, setShowOrderDetail] = useState(false);
+    const [selectedOrder, setSelectedOrder] = useState(null);
 
     useEffect(() => {
         // Fetch orders, customers, and vehicles for display
@@ -195,6 +198,15 @@ function OrdersPage() {
     ) : 0;
     const notEnoughStock = selectedVehicle && selectedQty > stockCount;
 
+    const handleShowOrderDetail = (order) => {
+        setSelectedOrder(order);
+        setShowOrderDetail(true);
+    };
+    const handleCloseOrderDetail = () => {
+        setShowOrderDetail(false);
+        setSelectedOrder(null);
+    };
+
     return (
         <DashboardLayout>
             <div className="space-y-6">
@@ -244,6 +256,11 @@ function OrdersPage() {
                                         <div className="text-slate-300 text-sm mb-2">Vehicle: <span className="text-white">{vehicle ? `${vehicle.modelName || vehicle.model_name} ${vehicle.version || ''}` : o.vehicle_id}</span></div>
                                         <div className="text-slate-400 text-sm mt-2">Status: <span className="text-white capitalize">{o.order_status || o.status}</span></div>
                                         <div className="text-slate-400 text-sm mt-2">Total: <span className="text-white font-semibold">{formatCurrency(o.total_amount || o.total_price || 0)}</span></div>
+                                        <div className="flex justify-end mt-4">
+                                            <Button variant="primary" size="sm" onClick={() => handleShowOrderDetail(o)}>
+                                                Details
+                                            </Button>
+                                        </div>
                                     </Card>
                                 );
                             })}
@@ -377,6 +394,21 @@ function OrdersPage() {
                             <Button type="submit" disabled={isSubmitting || notEnoughStock} className={notEnoughStock ? 'opacity-50 cursor-not-allowed' : ''}>{isSubmitting ? 'Placing...' : 'Place Order'}</Button>
                         </div>
                     </form>
+                </Modal>
+
+                {/* Order Detail Modal */}
+                <Modal isOpen={showOrderDetail} onClose={handleCloseOrderDetail} title="Order Details" size="lg">
+                    {selectedOrder && (() => {
+                        const customer = customers.find(c => c.id === selectedOrder.customer_id);
+                        const vehicle = availableVehicles.find(v => v.id === selectedOrder.vehicle_id);
+                        return (
+                            <OrdersDetail
+                                order={selectedOrder}
+                                customer={customer}
+                                vehicle={vehicle}
+                            />
+                        );
+                    })()}
                 </Modal>
             </div>
         </DashboardLayout>
