@@ -119,6 +119,7 @@ function CustomersPage() {
             email: customer.email || "",
             phone: customer.phone || "",
             address: customer.address || "",
+            is_active: customer.is_active,
         });
         setEditErrors({});
         setEditAlert({ type: "", message: "" });
