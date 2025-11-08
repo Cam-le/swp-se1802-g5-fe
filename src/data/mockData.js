@@ -208,7 +208,7 @@ export const MOCK_APPOINTMENTS = [
     dealer_staff_id: "4",
     vehicle_id: "veh-001",
     appointment_date: "2024-09-30T10:00:00",
-    status: "scheduled",
+    status: "Scheduled",
   },
   {
     id: "appt-002",
@@ -216,8 +216,18 @@ export const MOCK_APPOINTMENTS = [
     dealer_staff_id: "4",
     vehicle_id: "veh-002",
     appointment_date: "2024-10-02T14:00:00",
-    status: "scheduled",
+    status: "Scheduled",
   },
+
+  {
+    id: "appt-003",
+    customer_id: "cust-003",
+    dealer_staff_id: "4",
+    vehicle_id: "veh-003",
+    appointment_date: "2024-10-05T09:00:00",
+    status: "Pending",
+  }
+
 ];
 
 // Mock Vehicle Requests Data
