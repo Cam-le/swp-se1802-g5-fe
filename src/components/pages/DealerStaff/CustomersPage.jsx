@@ -95,6 +95,7 @@ function CustomersPage() {
                 phone: formData.phone.trim(),
                 address: formData.address.trim(),
                 dealer_staff_id: user?.id,
+                is_active: true,
             };
             const newCustomer = await customerApi.create(payload);
             // Prepend to list so it's visible immediately
