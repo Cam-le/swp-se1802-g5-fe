@@ -216,7 +216,7 @@ export const MOCK_APPOINTMENTS = [
     dealer_staff_id: "4",
     vehicle_id: "veh-002",
     appointment_date: "2024-10-02T14:00:00",
-    status: "Scheduled",
+    status: "Cancelled",
   },
 
   {

@@ -165,17 +165,23 @@ export const appointmentApi = {
     const newAppointment = {
       id: "appt-" + Date.now(),
       ...appointmentData,
-      status: "scheduled",
+      status: appointmentData.status || "Pending",
     };
     MOCK_APPOINTMENTS.push(newAppointment);
     return newAppointment;
   },
 
-  updateStatus: async (id, status) => {
+  updateStatus: async (id, status, note = "") => {
     await delay();
     const appointment = MOCK_APPOINTMENTS.find((a) => a.id === id);
     if (!appointment) throw new Error("Appointment not found");
     appointment.status = status;
+    if (status === "Scheduled" && note) {
+      appointment.confirm_note = note;
+    }
+    if (status === "Cancelled" && note) {
+      appointment.cancel_note = note;
+    }
     return appointment;
   },
 };

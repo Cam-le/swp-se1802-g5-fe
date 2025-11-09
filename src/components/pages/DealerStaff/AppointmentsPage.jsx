@@ -13,6 +13,53 @@ import LoadingSpinner from "../../common/LoadingSpinner"; // Import the loading 
 
 
 function AppointmentsPage() {
+    // Notes for confirm/cancel actions
+    const [confirmNote, setConfirmNote] = useState("");
+    const [cancelNote, setCancelNote] = useState("");
+    // Cancel modal state
+    const [isCancelOpen, setIsCancelOpen] = useState(false);
+    const [cancellingAppointment, setCancellingAppointment] = useState(null);
+
+    // Cancel Test Drive handler
+    const handleCancelTestDrive = async () => {
+        if (!cancellingAppointment) return;
+        try {
+            // Append cancel note to appointment
+            await appointmentApi.updateStatus(cancellingAppointment.id, "Cancelled", cancelNote);
+            setAlert({ type: 'success', message: 'Test drive schedule cancelled.' });
+            // Refresh appointments list
+            const appts = await appointmentApi.getAll(user?.id);
+            setAppointments(Array.isArray(appts) ? appts : []);
+        } catch (err) {
+            setAlert({ type: 'error', message: 'Failed to cancel test drive.' });
+        } finally {
+            setIsCancelOpen(false);
+            setCancellingAppointment(null);
+            setCancelNote("");
+        }
+    };
+    // Confirm modal state
+    const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+    const [confirmingAppointment, setConfirmingAppointment] = useState(null);
+
+    // Confirm Test Drive handler
+    const handleConfirmTestDrive = async () => {
+        if (!confirmingAppointment) return;
+        try {
+            // Append confirm note to appointment
+            await appointmentApi.updateStatus(confirmingAppointment.id, "Scheduled", confirmNote);
+            setAlert({ type: 'success', message: 'Test drive confirmed and scheduled!' });
+            // Refresh appointments list
+            const appts = await appointmentApi.getAll(user?.id);
+            setAppointments(Array.isArray(appts) ? appts : []);
+        } catch (err) {
+            setAlert({ type: 'error', message: 'Failed to confirm test drive.' });
+        } finally {
+            setIsConfirmOpen(false);
+            setConfirmingAppointment(null);
+            setConfirmNote("");
+        }
+    };
     // Details modal state
     const [isDetailsOpen, setIsDetailsOpen] = useState(false);
     const [selectedAppointment, setSelectedAppointment] = useState(null);
@@ -94,6 +141,7 @@ function AppointmentsPage() {
                 dealer_staff_id: user?.id,
                 appointment_datetime: formData.appointment_datetime,
                 note: formData.note,
+                status: "Pending",
             });
             setAppointments((prev) => [newAppointment, ...prev]);
             setAlert({ type: 'success', message: 'Appointment added successfully' });
@@ -131,7 +179,7 @@ function AppointmentsPage() {
                     </Card>
                     <Card className="flex flex-col items-center justify-center py-6">
                         <div className="text-slate-400 text-sm">Pending Appointments</div>
-                        <div className="text-2xl font-bold text-white">{appointments.filter(a => a.status === "Pending confirmation").length}</div>
+                        <div className="text-2xl font-bold text-white">{appointments.filter(a => a.status === "Pending").length}</div>
                     </Card>
                 </div>
 
@@ -150,8 +198,9 @@ function AppointmentsPage() {
                         onChange={e => setFilterStatus(e.target.value)}
                     >
                         <option>All appointments</option>
-                        <option>Pending confirmation</option>
+                        <option>Pending</option>
                         <option>Scheduled</option>
+                        <option>Cancelled</option>
                     </select>
                 </div>
 
@@ -177,6 +226,7 @@ function AppointmentsPage() {
                                     <th className="px-4 py-2 text-left">Customer</th>
                                     <th className="px-4 py-2 text-left">Vehicle</th>
                                     <th className="px-4 py-2 text-left">Status</th>
+                                    <th className="px-4 py-2 text-left">Notes</th>
                                     <th className="px-4 py-2 text-left">Actions</th>
                                 </tr>
                             </thead>
@@ -208,7 +258,12 @@ function AppointmentsPage() {
                                                 <td className="px-4 py-2">{customer ? customer.full_name : a.customer_id}</td>
                                                 <td className="px-4 py-2">{vehicle ? `${vehicle.model_name || vehicle.modelName} ${vehicle.version || ''}` : a.vehicle_id}</td>
                                                 <td className="px-4 py-2">
-                                                    <span className={`px-2 py-1 rounded text-xs font-semibold ${a.status === "Pending confirmation" ? "bg-yellow-500 text-black" : a.status === "Scheduled" ? "bg-green-500 text-white" : "bg-slate-600"}`}>{a.status}</span>
+                                                    <span className={`px-2 py-1 rounded text-xs font-semibold ${a.status === "Pending" ? "bg-yellow-500 text-black" : a.status === "Scheduled" ? "bg-green-500 text-white" : a.status === "Cancelled" ? "bg-red-500 text-white" : "bg-slate-600"}`}>{a.status}</span>
+                                                </td>
+                                                <td className="px-4 py-2">
+                                                    {a.note && <div className="text-slate-300 text-sm mb-1">"{a.note}"</div>}
+                                                    {a.confirm_note && <div className="text-blue-400 text-xs mt-1">Reason: "{a.confirm_note}"</div>}
+                                                    {a.cancel_note && <div className="text-red-400 text-xs mt-1">Reason: "{a.cancel_note}"</div>}
                                                 </td>
                                                 <td className="px-4 py-2 flex gap-2">
                                                     <button className="bg-slate-600 hover:bg-slate-700 px-2 py-1 rounded text-xs" title="Details" onClick={() => { setSelectedAppointment(a); setIsDetailsOpen(true); }}>
@@ -267,11 +322,40 @@ function AppointmentsPage() {
                                                             </div>
                                                         )}
                                                     </Modal>
-                                                    {a.status === "Pending confirmation" && (
-                                                        <button className="bg-blue-600 hover:bg-blue-700 px-2 py-1 rounded text-xs text-white" title="Confirm Test Drive">
+                                                    {a.status === "Pending" && (
+                                                        <button className="bg-blue-600 hover:bg-blue-700 px-2 py-1 rounded text-xs text-white" title="Confirm Test Drive" onClick={() => { setConfirmingAppointment(a); setIsConfirmOpen(true); }}>
                                                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                                                         </button>
                                                     )}
+                                                    {(a.status === "Pending" || a.status === "Scheduled") && (
+                                                        <button className="bg-red-600 hover:bg-red-700 px-2 py-1 rounded text-xs text-white" title="Cancel Test Drive" onClick={() => { setCancellingAppointment(a); setIsCancelOpen(true); }}>
+                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                                        </button>
+                                                    )}
+                                                    {/* Cancel Test Drive Modal */}
+                                                    <Modal isOpen={isCancelOpen} onClose={() => { setIsCancelOpen(false); setCancellingAppointment(null); setCancelNote(""); }} title="Cancel Test Drive" size="sm">
+                                                        <div className="space-y-4">
+                                                            <div className="text-lg font-semibold text-white">Cancel Test Drive Schedule?</div>
+                                                            <div className="text-slate-400">Are you sure you want to cancel this test drive schedule?</div>
+                                                            <InputField label="Notes (Reason for cancellation)" value={cancelNote} onChange={e => setCancelNote(e.target.value)} placeholder="Enter reason..." />
+                                                            <div className="flex justify-end gap-2 mt-6">
+                                                                <button className="bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded" onClick={() => { setIsCancelOpen(false); setCancellingAppointment(null); setCancelNote(""); }}>Keep</button>
+                                                                <button className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded font-semibold" onClick={handleCancelTestDrive}>Cancel Schedule</button>
+                                                            </div>
+                                                        </div>
+                                                    </Modal>
+                                                    {/* Confirm Test Drive Modal */}
+                                                    <Modal isOpen={isConfirmOpen} onClose={() => { setIsConfirmOpen(false); setConfirmingAppointment(null); setConfirmNote(""); }} title="Confirm Test Drive" size="sm">
+                                                        <div className="space-y-4">
+                                                            <div className="text-lg font-semibold text-white">Confirm Test Drive Schedule?</div>
+                                                            <div className="text-slate-400">Are you sure you want to confirm and schedule this test drive?</div>
+                                                            <InputField label="Notes (Reason for confirmation)" value={confirmNote} onChange={e => setConfirmNote(e.target.value)} placeholder="Enter note..." />
+                                                            <div className="flex justify-end gap-2 mt-6">
+                                                                <button className="bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded" onClick={() => { setIsConfirmOpen(false); setConfirmingAppointment(null); setConfirmNote(""); }}>Cancel</button>
+                                                                <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded font-semibold" onClick={handleConfirmTestDrive}>Confirm</button>
+                                                            </div>
+                                                        </div>
+                                                    </Modal>
                                                 </td>
                                             </tr>
                                         );
