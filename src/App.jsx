@@ -20,7 +20,6 @@ import VehiclesPage from "./components/pages/DealerStaff/VehiclesPage";
 import OrdersPage from "./components/pages/DealerStaff/OrdersPage";
 import RequestVehiclesPage from "./components/pages/DealerStaff/RequestVehiclesPage";
 
-
 // Dealer Manager Pages
 import DealerManagerDashboard from "./components/pages/DealerManager/DashboardPage";
 import DealerManagerStaffPage from "./components/pages/DealerManager/DealerManagerStaffPage";
@@ -35,10 +34,8 @@ import DealerManagerAppointmentsPage from "./components/pages/DealerManager/Deal
 // EVM Staff Pages
 import EVMStaffDashboard from "./components/pages/EVMStaff/DashboardPage";
 import VehicleRequestsPage from "./components/pages/EVMStaff/VehicleRequestsPage";
-import PricingManagementPage from "./components/pages/EVMStaff/PricingManagementPage";
 import EVMStaffDealersPage from "./components/pages/EVMStaff/EVMStaffDealersPage";
 import EVMStaffInventoryPage from "./components/pages/EVMStaff/EVMStaffInventoryPage";
-import EVMStaffPromotionsPage from "./components/pages/EVMStaff/EVMStaffPromotionsPage";
 import EVMStaffReportsPage from "./components/pages/EVMStaff/EVMStaffReportsPage";
 import EVMStaffVehiclesPage from "./components/pages/EVMStaff/EVMStaffVehiclesPage";
 
@@ -48,7 +45,6 @@ import UserManagementPage from "./components/pages/Admin/UserManagementPage";
 import RoleManagementPage from "./components/pages/Admin/RoleManagementPage";
 import SystemSettingsPage from "./components/pages/Admin/SystemSettingsPage";
 import SystemReportsPage from "./components/pages/Admin/SystemReportsPage";
-import AdminVehiclesPage from "./components/pages/Admin/AdminVehiclesPage";
 import AdminDealersPage from "./components/pages/Admin/AdminDealersPage";
 
 // Shared Pages
@@ -337,14 +333,6 @@ function App() {
               }
             />
             <Route
-              path={ROUTES.EVM_STAFF.PRICING}
-              element={
-                <ProtectedRoute allowedRoles={[ROLES.EVM_STAFF.id]}>
-                  <PricingManagementPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
               path={ROUTES.EVM_STAFF.DEALERS}
               element={
                 <ProtectedRoute allowedRoles={[ROLES.EVM_STAFF.id]}>
@@ -357,14 +345,6 @@ function App() {
               element={
                 <ProtectedRoute allowedRoles={[ROLES.EVM_STAFF.id]}>
                   <EVMStaffInventoryPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path={ROUTES.EVM_STAFF.PROMOTIONS}
-              element={
-                <ProtectedRoute allowedRoles={[ROLES.EVM_STAFF.id]}>
-                  <EVMStaffPromotionsPage />
                 </ProtectedRoute>
               }
             />
@@ -431,14 +411,6 @@ function App() {
               element={
                 <ProtectedRoute allowedRoles={[ROLES.ADMIN.id]}>
                   <SystemReportsPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path={ROUTES.ADMIN.VEHICLES}
-              element={
-                <ProtectedRoute allowedRoles={[ROLES.ADMIN.id]}>
-                  <AdminVehiclesPage />
                 </ProtectedRoute>
               }
             />

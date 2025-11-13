@@ -37,8 +37,6 @@ export const EVM_STAFF_ROUTES = {
   INVENTORY: "/evm/inventory",
   VEHICLE_REQUESTS: "/evm/vehicle-requests",
   DEALERS: "/evm/dealers",
-  PRICING: "/evm/pricing",
-  PROMOTIONS: "/evm/promotions",
   REPORTS: "/evm/reports",
   PROFILE: "/evm/profile",
 };
