@@ -53,39 +53,39 @@ function VehiclesPage() {
   const [showOrderModal, setShowOrderModal] = useState(false);
   const [orderVehicle, setOrderVehicle] = useState(null);
   const [orderForm, setOrderForm] = useState({
-    customerName: '',
-    customerPhone: '',
-    customerAddress: '',
-    customerRequest: '',
-    paymentType: 'full',
+    customerName: "",
+    customerPhone: "",
+    customerAddress: "",
+    customerRequest: "",
+    paymentType: "full",
     quantity: 1,
   });
   const [orderSubmitting, setOrderSubmitting] = useState(false);
-  const [orderError, setOrderError] = useState('');
+  const [orderError, setOrderError] = useState("");
 
   const openOrderModal = (vehicle) => {
     setOrderVehicle(vehicle);
     setOrderForm({
-      customerName: '',
-      customerPhone: '',
-      customerAddress: '',
-      customerRequest: '',
-      paymentType: 'full',
+      customerName: "",
+      customerPhone: "",
+      customerAddress: "",
+      customerRequest: "",
+      paymentType: "full",
       quantity: 1,
     });
-    setOrderError('');
+    setOrderError("");
     setShowOrderModal(true);
   };
   const closeOrderModal = () => {
     setShowOrderModal(false);
     setOrderVehicle(null);
-    setOrderError('');
+    setOrderError("");
   };
   const handleOrderInputChange = (e) => {
     const { name, value, type } = e.target;
     setOrderForm((prev) => ({
       ...prev,
-      [name]: type === 'number' ? Number(value) : value,
+      [name]: type === "number" ? Number(value) : value,
     }));
   };
   // Car detail view state
@@ -385,7 +385,7 @@ function VehiclesPage() {
       try {
         const data = await customerApi.getAll(user.id);
         setCustomers(Array.isArray(data) ? data : []);
-      } catch (err) { }
+      } catch (err) {}
     };
     fetchCustomers();
   }, [user?.id]);
@@ -396,16 +396,23 @@ function VehiclesPage() {
     setOrderSubmitting(true);
     try {
       // Validate required fields
-      if (!orderForm.customerName.trim() || !orderForm.customerPhone.trim() || !orderForm.customerAddress.trim()) {
+      if (
+        !orderForm.customerName.trim() ||
+        !orderForm.customerPhone.trim() ||
+        !orderForm.customerAddress.trim()
+      ) {
         setOrderError("Please fill in all required customer information.");
         setOrderSubmitting(false);
         return;
       }
       // Find customer by name, phone, address
-      let customer = customers.find(c =>
-        c.full_name.trim().toLowerCase() === orderForm.customerName.trim().toLowerCase() &&
-        c.phone.trim() === orderForm.customerPhone.trim() &&
-        c.address.trim().toLowerCase() === orderForm.customerAddress.trim().toLowerCase()
+      let customer = customers.find(
+        (c) =>
+          c.full_name.trim().toLowerCase() ===
+            orderForm.customerName.trim().toLowerCase() &&
+          c.phone.trim() === orderForm.customerPhone.trim() &&
+          c.address.trim().toLowerCase() ===
+            orderForm.customerAddress.trim().toLowerCase()
       );
       let customer_id = customer ? customer.id : null;
       // If not found, create new customer
@@ -419,11 +426,13 @@ function VehiclesPage() {
         };
         const newCustomer = await customerApi.create(payload);
         customer_id = newCustomer.id;
-        setCustomers(prev => [newCustomer, ...prev]);
+        setCustomers((prev) => [newCustomer, ...prev]);
       }
       // Prepare order payload
       const qty = orderForm.quantity || 1;
-      const price = orderVehicle ? (orderVehicle.basePrice || orderVehicle.base_price || 0) : 0;
+      const price = orderVehicle
+        ? orderVehicle.basePrice || orderVehicle.base_price || 0
+        : 0;
       const payload = {
         customer_id,
         dealer_staff_id: user?.id,
@@ -436,7 +445,7 @@ function VehiclesPage() {
         customer_request: orderForm.customerRequest,
       };
       const created = await orderApi.create(payload);
-      setOrders(prev => [created, ...prev]);
+      setOrders((prev) => [created, ...prev]);
       setOrderError("");
       setOrderSubmitting(false);
       setShowOrderModal(false);
@@ -536,50 +545,82 @@ function VehiclesPage() {
                   alt={detailVehicle.modelName}
                   className="w-full max-w-md h-80 object-cover rounded-lg bg-slate-700 mb-6 md:mb-0 md:mr-8"
                   onError={(e) => {
-                    e.target.src = "https://via.placeholder.com/400x300?text=No+Image";
+                    e.target.src =
+                      "https://via.placeholder.com/400x300?text=No+Image";
                   }}
                 />
                 <div className="flex-1 flex flex-col gap-2">
                   <h2 className="text-4xl font-bold text-white mb-2">
-                    {detailVehicle.modelName} <span className="text-2xl text-slate-400">- {detailVehicle.version}</span>
+                    {detailVehicle.modelName}{" "}
+                    <span className="text-2xl text-slate-400">
+                      - {detailVehicle.version}
+                    </span>
                   </h2>
-                  <div className="text-lg text-slate-300 mb-4">{detailVehicle.description}</div>
+                  <div className="text-lg text-slate-300 mb-4">
+                    {detailVehicle.description}
+                  </div>
                   <div className="flex flex-wrap gap-6 mb-2">
                     <div>
-                      <span className="text-base text-slate-400">Category:</span>
-                      <span className="ml-1 font-semibold text-white">{detailVehicle.category}</span>
+                      <span className="text-base text-slate-400">
+                        Category:
+                      </span>
+                      <span className="ml-1 font-semibold text-white">
+                        {detailVehicle.category}
+                      </span>
                     </div>
                     <div>
                       <span className="text-base text-slate-400">Color:</span>
-                      <span className="ml-1 font-semibold text-white">{detailVehicle.color}</span>
+                      <span className="ml-1 font-semibold text-white">
+                        {detailVehicle.color}
+                      </span>
                     </div>
                     <div>
                       <span className="text-base text-slate-400">Status:</span>
-                      <span className="ml-1 font-semibold"><Badge>{detailVehicle.status}</Badge></span>
+                      <span className="ml-1 font-semibold">
+                        <Badge>{detailVehicle.status}</Badge>
+                      </span>
                     </div>
                     <div>
                       <span className="text-base text-slate-400">Stock:</span>
-                      <span className="ml-1 font-semibold"><Badge>{detailVehicle.currentStock}</Badge></span>
+                      <span className="ml-1 font-semibold">
+                        <Badge>{detailVehicle.currentStock}</Badge>
+                      </span>
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-6 mb-2">
                     <div>
                       <span className="text-base text-slate-400">Range:</span>
-                      <span className="ml-1 font-semibold text-white">{detailVehicle.rangePerCharge} km</span>
+                      <span className="ml-1 font-semibold text-white">
+                        {detailVehicle.rangePerCharge} km
+                      </span>
                     </div>
                     <div>
                       <span className="text-base text-slate-400">Battery:</span>
-                      <span className="ml-1 font-semibold text-white">{detailVehicle.batteryCapacity} kWh</span>
+                      <span className="ml-1 font-semibold text-white">
+                        {detailVehicle.batteryCapacity} kWh
+                      </span>
                     </div>
                     <div>
-                      <span className="text-base text-slate-400">Launch Date:</span>
-                      <span className="ml-1 font-semibold text-white">{detailVehicle.launchDate ? formatShortDate(detailVehicle.launchDate) : '-'}</span>
+                      <span className="text-base text-slate-400">
+                        Launch Date:
+                      </span>
+                      <span className="ml-1 font-semibold text-white">
+                        {detailVehicle.launchDate
+                          ? formatShortDate(detailVehicle.launchDate)
+                          : "-"}
+                      </span>
                     </div>
                   </div>
                   <div className="text-3xl font-bold text-orange-400 mb-4">
                     {formatCurrency(detailVehicle.basePrice)}
                   </div>
-                  <Button variant="primary" onClick={() => setDetailVehicle(null)} className="mt-4 w-max self-end">Return</Button>
+                  <Button
+                    variant="primary"
+                    onClick={() => setDetailVehicle(null)}
+                    className="mt-4 w-max self-end"
+                  >
+                    Return
+                  </Button>
                 </div>
               </div>
             ) : filteredVehicles.length === 0 ? (
@@ -621,52 +662,80 @@ function VehiclesPage() {
                         alt={vehicle.modelName}
                         className="w-full h-32 object-cover rounded mb-2 bg-slate-700"
                         onError={(e) => {
-                          e.target.src = "https://via.placeholder.com/320x240?text=No+Image";
+                          e.target.src =
+                            "https://via.placeholder.com/320x240?text=No+Image";
                         }}
                       />
                       <div className="flex flex-col gap-1 mb-1">
                         <div className="flex items-center gap-2">
-                          <span className="text-lg font-bold text-white">{vehicle.modelName}</span>
-                          <span className="text-base text-slate-400">- {vehicle.version}</span>
+                          <span className="text-lg font-bold text-white">
+                            {vehicle.modelName}
+                          </span>
+                          <span className="text-base text-slate-400">
+                            - {vehicle.version}
+                          </span>
                         </div>
-                        <div className="text-sm text-slate-300 mb-1">{vehicle.description}</div>
+                        <div className="text-sm text-slate-300 mb-1">
+                          {vehicle.description}
+                        </div>
                       </div>
                       <div className="grid grid-cols-2 gap-1 mb-1">
                         <div>
                           <span className="text-xs text-slate-400">Range:</span>
-                          <span className="font-semibold text-white ml-1">{vehicle.rangePerCharge} km</span>
+                          <span className="font-semibold text-white ml-1">
+                            {vehicle.rangePerCharge} km
+                          </span>
                         </div>
                         <div>
-                          <span className="text-xs text-slate-400">Battery:</span>
-                          <span className="font-semibold text-white ml-1">{vehicle.batteryCapacity} kWh</span>
+                          <span className="text-xs text-slate-400">
+                            Battery:
+                          </span>
+                          <span className="font-semibold text-white ml-1">
+                            {vehicle.batteryCapacity} kWh
+                          </span>
                         </div>
                       </div>
                       <div className="flex items-center justify-between mb-1">
                         <div>
-                          <span className="text-xs text-slate-400">Status:</span>
+                          <span className="text-xs text-slate-400">
+                            Status:
+                          </span>
                           <span className="font-semibold ml-1">
-                            <Badge variant={getStatusVariant(vehicle.status)}>{vehicle.status}</Badge>
+                            <Badge variant={getStatusVariant(vehicle.status)}>
+                              {vehicle.status}
+                            </Badge>
                           </span>
                         </div>
                         <div>
                           <span className="text-xs text-slate-400">Stock:</span>
                           <span className="font-semibold ml-1">
-                            <Badge variant={getStockVariant(vehicle.currentStock)}>{vehicle.currentStock}</Badge>
+                            <Badge
+                              variant={getStockVariant(vehicle.currentStock)}
+                            >
+                              {vehicle.currentStock}
+                            </Badge>
                           </span>
                         </div>
                       </div>
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="text-xs text-slate-400">Launch Date:</span>
-                        <span className="font-semibold text-white">{vehicle.launchDate ? formatShortDate(vehicle.launchDate) : '-'}</span>
+                        <span className="text-xs text-slate-400">
+                          Launch Date:
+                        </span>
+                        <span className="font-semibold text-white">
+                          {vehicle.launchDate
+                            ? formatShortDate(vehicle.launchDate)
+                            : "-"}
+                        </span>
                       </div>
                       <div className="text-lg font-bold text-orange-400 mb-2">
                         {formatCurrency(vehicle.basePrice)}
                       </div>
                       <div className="flex gap-2 mt-auto">
-                        <Button variant="primary" className="w-full" onClick={() => openEditModal(vehicle)}>
-                          Edit
-                        </Button>
-                        <Button variant="secondary" className="w-full" onClick={() => setDetailVehicle(vehicle)}>
+                        <Button
+                          variant="secondary"
+                          className="w-full"
+                          onClick={() => setDetailVehicle(vehicle)}
+                        >
                           Detail
                         </Button>
                         <Button
@@ -693,7 +762,10 @@ function VehiclesPage() {
                   <div className="bg-slate-800 rounded-lg border border-slate-700 p-4">
                     <p className="text-sm text-slate-400">Out of Stock</p>
                     <p className="text-2xl font-bold text-white mt-1">
-                      {filteredVehicles.filter((v) => v.currentStock === 0).length}
+                      {
+                        filteredVehicles.filter((v) => v.currentStock === 0)
+                          .length
+                      }
                     </p>
                   </div>
                 </div>
@@ -788,8 +860,11 @@ function VehiclesPage() {
                   value={formData.description}
                   onChange={handleInputChange}
                   rows={3}
-                  className={`w-full px-4 py-3 bg-slate-700 border ${formErrors.description ? "border-red-500" : "border-slate-600"
-                    } rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition`}
+                  className={`w-full px-4 py-3 bg-slate-700 border ${
+                    formErrors.description
+                      ? "border-red-500"
+                      : "border-slate-600"
+                  } rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition`}
                   placeholder="Enter vehicle description..."
                 />
                 {formErrors.description && (
@@ -868,7 +943,12 @@ function VehiclesPage() {
         </Modal>
 
         {/* Order Modal */}
-        <Modal isOpen={showOrderModal} onClose={closeOrderModal} title="Create Order" size="lg">
+        <Modal
+          isOpen={showOrderModal}
+          onClose={closeOrderModal}
+          title="Create Order"
+          size="lg"
+        >
           {orderVehicle && (
             <form className="space-y-6" onSubmit={handleOrderSubmit}>
               {/* Vehicle Info */}
@@ -877,80 +957,200 @@ function VehiclesPage() {
                   src={orderVehicle.imageUrl}
                   alt={orderVehicle.modelName}
                   className="w-32 h-24 object-cover rounded bg-slate-700 border border-slate-600"
-                  onError={e => (e.target.src = "https://via.placeholder.com/128x96?text=No+Image")}
+                  onError={(e) =>
+                    (e.target.src =
+                      "https://via.placeholder.com/128x96?text=No+Image")
+                  }
                 />
                 <div className="flex-1">
-                  <div className="font-bold text-lg text-white">{orderVehicle.modelName} <span className="text-slate-400 font-normal">{orderVehicle.version}</span></div>
-                  <div className="text-slate-300 text-sm">{orderVehicle.category}</div>
-                  <div className="text-slate-400 text-sm mt-1">Đơn giá: <span className="font-semibold text-white">{formatCurrency(orderVehicle.basePrice)}</span></div>
+                  <div className="font-bold text-lg text-white">
+                    {orderVehicle.modelName}{" "}
+                    <span className="text-slate-400 font-normal">
+                      {orderVehicle.version}
+                    </span>
+                  </div>
+                  <div className="text-slate-300 text-sm">
+                    {orderVehicle.category}
+                  </div>
+                  <div className="text-slate-400 text-sm mt-1">
+                    Đơn giá:{" "}
+                    <span className="font-semibold text-white">
+                      {formatCurrency(orderVehicle.basePrice)}
+                    </span>
+                  </div>
                 </div>
-                <div className="text-slate-400 text-sm">Số lượng: <input type="number" min="1" name="quantity" value={orderForm.quantity} onChange={handleOrderInputChange} className="w-16 px-2 py-1 rounded bg-slate-700 text-white border border-slate-600" /></div>
+                <div className="text-slate-400 text-sm">
+                  Số lượng:{" "}
+                  <input
+                    type="number"
+                    min="1"
+                    name="quantity"
+                    value={orderForm.quantity}
+                    onChange={handleOrderInputChange}
+                    className="w-16 px-2 py-1 rounded bg-slate-700 text-white border border-slate-600"
+                  />
+                </div>
               </div>
               {/* Payment Type */}
               <div>
-                <div className="font-semibold text-white mb-2">Chọn phương thức thanh toán</div>
+                <div className="font-semibold text-white mb-2">
+                  Chọn phương thức thanh toán
+                </div>
                 <div className="flex flex-col gap-2">
                   <label className="flex items-center gap-2 text-slate-300">
-                    <input type="radio" name="paymentType" value="full" checked={orderForm.paymentType === 'full'} onChange={handleOrderInputChange} className="accent-blue-500" />
+                    <input
+                      type="radio"
+                      name="paymentType"
+                      value="full"
+                      checked={orderForm.paymentType === "full"}
+                      onChange={handleOrderInputChange}
+                      className="accent-blue-500"
+                    />
                     Thanh toán toàn bộ
                   </label>
                   <label className="flex items-center gap-2 text-slate-300">
-                    <input type="radio" name="paymentType" value="installment" checked={orderForm.paymentType === 'installment'} onChange={handleOrderInputChange} className="accent-blue-500" />
+                    <input
+                      type="radio"
+                      name="paymentType"
+                      value="installment"
+                      checked={orderForm.paymentType === "installment"}
+                      onChange={handleOrderInputChange}
+                      className="accent-blue-500"
+                    />
                     Trả góp/Installment
                   </label>
                 </div>
               </div>
               {/* Customer Info */}
               <div>
-                <div className="font-semibold text-white mb-2">Nhập thông tin đơn hàng</div>
+                <div className="font-semibold text-white mb-2">
+                  Nhập thông tin đơn hàng
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <InputField id="customerName" name="customerName" label="Họ tên" value={orderForm.customerName} onChange={handleOrderInputChange} placeholder="Nhập họ tên khách hàng" required />
-                  <InputField id="customerPhone" name="customerPhone" label="Số điện thoại" value={orderForm.customerPhone} onChange={handleOrderInputChange} placeholder="Nhập số điện thoại" required />
-                  <InputField id="customerAddress" name="customerAddress" label="Địa chỉ" value={orderForm.customerAddress} onChange={handleOrderInputChange} placeholder="Nhập địa chỉ" required />
-                  <InputField id="customerRequest" name="customerRequest" label="Yêu cầu" value={orderForm.customerRequest} onChange={handleOrderInputChange} placeholder="Yêu cầu thêm (nếu có)" />
+                  <InputField
+                    id="customerName"
+                    name="customerName"
+                    label="Họ tên"
+                    value={orderForm.customerName}
+                    onChange={handleOrderInputChange}
+                    placeholder="Nhập họ tên khách hàng"
+                    required
+                  />
+                  <InputField
+                    id="customerPhone"
+                    name="customerPhone"
+                    label="Số điện thoại"
+                    value={orderForm.customerPhone}
+                    onChange={handleOrderInputChange}
+                    placeholder="Nhập số điện thoại"
+                    required
+                  />
+                  <InputField
+                    id="customerAddress"
+                    name="customerAddress"
+                    label="Địa chỉ"
+                    value={orderForm.customerAddress}
+                    onChange={handleOrderInputChange}
+                    placeholder="Nhập địa chỉ"
+                    required
+                  />
+                  <InputField
+                    id="customerRequest"
+                    name="customerRequest"
+                    label="Yêu cầu"
+                    value={orderForm.customerRequest}
+                    onChange={handleOrderInputChange}
+                    placeholder="Yêu cầu thêm (nếu có)"
+                  />
                 </div>
               </div>
-              {orderError && <div className="text-red-400 text-sm">{orderError}</div>}
+              {orderError && (
+                <div className="text-red-400 text-sm">{orderError}</div>
+              )}
               <div className="flex justify-end gap-3 pt-4 border-t border-slate-700">
-                <Button variant="secondary" type="button" onClick={closeOrderModal}>Hủy</Button>
-                <Button variant="primary" type="submit" isLoading={orderSubmitting}>Purchase</Button>
+                <Button
+                  variant="secondary"
+                  type="button"
+                  onClick={closeOrderModal}
+                >
+                  Hủy
+                </Button>
+                <Button
+                  variant="primary"
+                  type="submit"
+                  isLoading={orderSubmitting}
+                >
+                  Purchase
+                </Button>
               </div>
             </form>
           )}
         </Modal>
 
         {/* Feedback Prompt Modal */}
-        <Modal isOpen={showFeedbackPrompt} onClose={handleFeedbackNo} title="Feedback">
+        <Modal
+          isOpen={showFeedbackPrompt}
+          onClose={handleFeedbackNo}
+          title="Feedback"
+        >
           <div className="space-y-4 text-center">
-            <div className="text-lg font-semibold text-white">Would you like to leave feedback about your experience?</div>
+            <div className="text-lg font-semibold text-white">
+              Would you like to leave feedback about your experience?
+            </div>
             <div className="flex justify-center gap-4 mt-6">
-              <Button variant="secondary" onClick={handleFeedbackNo}>No, thanks</Button>
-              <Button variant="primary" onClick={handleFeedbackYes}>Yes</Button>
+              <Button variant="secondary" onClick={handleFeedbackNo}>
+                No, thanks
+              </Button>
+              <Button variant="primary" onClick={handleFeedbackYes}>
+                Yes
+              </Button>
             </div>
           </div>
         </Modal>
         {/* Feedback Form Modal */}
-        <Modal isOpen={showFeedbackForm} onClose={handleFeedbackNo} title="Leave Feedback">
+        <Modal
+          isOpen={showFeedbackForm}
+          onClose={handleFeedbackNo}
+          title="Leave Feedback"
+        >
           <form onSubmit={handleSendFeedback} className="space-y-4">
-            <div className="text-lg font-semibold text-white">Please write your feedback about the dealer staff:</div>
+            <div className="text-lg font-semibold text-white">
+              Please write your feedback about the dealer staff:
+            </div>
             <textarea
               className="w-full min-h-[100px] p-3 rounded bg-slate-700 text-white border border-slate-600 focus:outline-none"
               value={feedbackText}
-              onChange={e => setFeedbackText(e.target.value)}
+              onChange={(e) => setFeedbackText(e.target.value)}
               placeholder="Type your feedback here..."
               required
             />
             <div className="flex justify-end gap-3">
-              <Button variant="secondary" type="button" onClick={handleFeedbackNo}>Cancel</Button>
-              <Button variant="primary" type="submit">Send</Button>
+              <Button
+                variant="secondary"
+                type="button"
+                onClick={handleFeedbackNo}
+              >
+                Cancel
+              </Button>
+              <Button variant="primary" type="submit">
+                Send
+              </Button>
             </div>
           </form>
         </Modal>
         {/* Thank You Note Modal */}
-        <Modal isOpen={showThankYou} onClose={handleFeedbackNo} title="Thank You">
-          <div className="text-lg font-semibold text-white text-center py-8">Thank you for sending your feedback!</div>
+        <Modal
+          isOpen={showThankYou}
+          onClose={handleFeedbackNo}
+          title="Thank You"
+        >
+          <div className="text-lg font-semibold text-white text-center py-8">
+            Thank you for sending your feedback!
+          </div>
           <div className="flex justify-center">
-            <Button variant="primary" onClick={handleFeedbackNo}>Close</Button>
+            <Button variant="primary" onClick={handleFeedbackNo}>
+              Close
+            </Button>
           </div>
         </Modal>
       </div>

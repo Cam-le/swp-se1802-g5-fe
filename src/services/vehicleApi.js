@@ -107,6 +107,34 @@ export const vehicleApi = {
       throw error;
     }
   },
+
+  /**
+   * Set dealer selling price for a vehicle (Dealer Manager only)
+   * @param {string} userId - User UUID (Dealer Manager)
+   * @param {Object} priceData - Price data
+   * @param {string} priceData.vehicleId - Vehicle UUID
+   * @param {number} priceData.sellingPrice - New selling price
+   * @returns {Promise} Response confirming price update
+   */
+  setDealerPrice: async (userId, priceData) => {
+    try {
+      const requestBody = {
+        vehicleId: priceData.vehicleId,
+        sellingPrice: priceData.sellingPrice,
+      };
+
+      console.log("Setting dealer price:", requestBody);
+      const response = await apiClient.post(
+        `/api/Vehicle/set-dealer-price?userId=${userId}`,
+        requestBody
+      );
+      console.log("Dealer price set successfully:", response.data);
+      return response.data;
+    } catch (error) {
+      console.error("Error setting dealer price:", error);
+      throw error;
+    }
+  },
 };
 
 export default vehicleApi;

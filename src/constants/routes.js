@@ -47,7 +47,6 @@ export const ADMIN_ROUTES = {
   USERS: "/admin/users",
   ROLES: "/admin/roles",
   DEALERS: "/admin/dealers",
-  VEHICLES: "/admin/vehicles",
   SETTINGS: "/admin/settings",
   REPORTS: "/admin/reports",
   PROFILE: "/admin/profile",
