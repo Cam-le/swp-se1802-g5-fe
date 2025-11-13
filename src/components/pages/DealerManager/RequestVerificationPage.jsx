@@ -23,6 +23,7 @@ function RequestVerificationPage() {
   // Modal states
   const [showApproveModal, setShowApproveModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
+  const [showConfirmReceiptModal, setShowConfirmReceiptModal] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [rejectReason, setRejectReason] = useState("");
 
@@ -37,7 +38,6 @@ function RequestVerificationPage() {
       setLoading(true);
       const response = await vehicleRequestApi.getAll();
       if (response.isSuccess) {
-        // Filter requests for this dealer
         const dealerRequests = vehicleRequestApi.filters.byDealer(
           response.data,
           user.dealer_id
@@ -92,7 +92,6 @@ function RequestVerificationPage() {
         });
         setShowApproveModal(false);
         setSelectedRequest(null);
-        // Refresh the list
         fetchRequests();
       } else {
         setAlert({
@@ -153,7 +152,6 @@ function RequestVerificationPage() {
         setShowRejectModal(false);
         setSelectedRequest(null);
         setRejectReason("");
-        // Refresh the list
         fetchRequests();
       } else {
         setAlert({
@@ -173,11 +171,62 @@ function RequestVerificationPage() {
     }
   };
 
+  const handleConfirmReceipt = (request) => {
+    setSelectedRequest(request);
+    setShowConfirmReceiptModal(true);
+  };
+
+  const confirmReceipt = async () => {
+    if (!selectedRequest || !user?.dealer_id) {
+      setAlert({
+        type: "error",
+        message: "Missing required information to confirm receipt",
+      });
+      return;
+    }
+
+    try {
+      setProcessingId(selectedRequest.id);
+      setAlert({ type: "", message: "" });
+
+      const response = await vehicleRequestApi.confirmReceipt(
+        selectedRequest.id,
+        user.dealer_id
+      );
+
+      if (response.isSuccess) {
+        setAlert({
+          type: "success",
+          message:
+            "Receipt confirmed successfully! Vehicles have been added to your inventory.",
+        });
+        setShowConfirmReceiptModal(false);
+        setSelectedRequest(null);
+        fetchRequests();
+      } else {
+        setAlert({
+          type: "error",
+          message: response.messages?.[0] || "Failed to confirm receipt",
+        });
+      }
+    } catch (error) {
+      console.error("Error confirming receipt:", error);
+      setAlert({
+        type: "error",
+        message:
+          error.response?.data?.messages?.[0] || "Failed to confirm receipt",
+      });
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
   const getStatusBadge = (status) => {
     const variants = {
       "Pending Manager Approval": "warning",
-      Processing: "info",
-      completed: "success",
+      "Pending EVM Allocation": "info",
+      Shipped: "success",
+      Completed: "success",
       Rejected: "danger",
     };
     return variants[status] || "default";
@@ -186,8 +235,9 @@ function RequestVerificationPage() {
   const pendingRequests = requests.filter(
     (r) => r.status === "Pending Manager Approval"
   );
+  const shippedRequests = requests.filter((r) => r.status === "Shipped");
   const otherRequests = requests.filter(
-    (r) => r.status !== "Pending Manager Approval"
+    (r) => r.status !== "Pending Manager Approval" && r.status !== "Shipped"
   );
 
   return (
@@ -237,18 +287,40 @@ function RequestVerificationPage() {
                     </div>
 
                     <div className="space-y-2 text-sm">
-                      <div className="text-slate-300">
-                        Vehicle:{" "}
-                        <span className="text-white font-semibold">
-                          {req.vehicleModelName || "Unknown"}
-                        </span>
-                      </div>
-                      <div className="text-slate-300">
-                        Quantity:{" "}
-                        <span className="text-white font-semibold">
-                          {req.quantity}
-                        </span>
-                      </div>
+                      {req.items && req.items.length > 0 ? (
+                        <div>
+                          <div className="text-slate-300 font-semibold mb-1">
+                            Vehicles:
+                          </div>
+                          {req.items.map((item, idx) => (
+                            <div key={idx} className="text-slate-300 ml-2">
+                              •{" "}
+                              <span className="text-white font-semibold">
+                                {item.vehicleModelName}
+                              </span>
+                              {" × "}
+                              <span className="text-blue-400">
+                                {item.quantity}
+                              </span>
+                            </div>
+                          ))}
+                          <div className="text-slate-400 text-xs mt-1">
+                            Total:{" "}
+                            {req.items.reduce(
+                              (sum, item) => sum + item.quantity,
+                              0
+                            )}{" "}
+                            units
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-slate-300">
+                          Vehicle:{" "}
+                          <span className="text-white font-semibold">
+                            Unknown
+                          </span>
+                        </div>
+                      )}
                       <div className="text-slate-300">
                         Created by:{" "}
                         <span className="text-white">
@@ -292,6 +364,119 @@ function RequestVerificationPage() {
             )}
           </div>
 
+          {/* Shipped Requests - Awaiting Confirmation */}
+          <div className="mb-8">
+            <h2 className="text-xl font-semibold text-white mb-4">
+              Shipped - Awaiting Confirmation ({shippedRequests.length})
+            </h2>
+            {shippedRequests.length === 0 ? (
+              <Card>
+                <p className="text-slate-400 text-center py-8">
+                  No shipped requests awaiting confirmation
+                </p>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {shippedRequests.map((req) => (
+                  <Card
+                    key={req.id}
+                    hover
+                    className="border-green-500 border-opacity-30"
+                  >
+                    <div className="flex justify-between items-start mb-3">
+                      <div>
+                        <div className="text-slate-400 text-sm">Request ID</div>
+                        <div className="text-white font-medium text-sm">
+                          {req.id.substring(0, 8)}...
+                        </div>
+                      </div>
+                      <Badge variant={getStatusBadge(req.status)}>
+                        {req.status}
+                      </Badge>
+                    </div>
+
+                    <div className="space-y-2 text-sm">
+                      {req.items && req.items.length > 0 ? (
+                        <div>
+                          <div className="text-slate-300 font-semibold mb-1">
+                            Vehicles:
+                          </div>
+                          {req.items.map((item, idx) => (
+                            <div key={idx} className="text-slate-300 ml-2">
+                              •{" "}
+                              <span className="text-white font-semibold">
+                                {item.vehicleModelName}
+                              </span>
+                              {" × "}
+                              <span className="text-blue-400">
+                                {item.quantity}
+                              </span>
+                            </div>
+                          ))}
+                          <div className="text-slate-400 text-xs mt-1">
+                            Total:{" "}
+                            {req.items.reduce(
+                              (sum, item) => sum + item.quantity,
+                              0
+                            )}{" "}
+                            units
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-slate-300">
+                          Vehicle: <span className="text-white">Unknown</span>
+                        </div>
+                      )}
+                      {req.expectedDeliveryDate && (
+                        <div className="text-green-400 bg-green-500 bg-opacity-10 p-2 rounded">
+                          Expected Delivery:{" "}
+                          <span className="font-semibold">
+                            {formatDateTime(req.expectedDeliveryDate)}
+                          </span>
+                        </div>
+                      )}
+                      {req.note && (
+                        <div className="text-slate-300">
+                          Note:{" "}
+                          <span className="text-white italic">
+                            "{req.note}"
+                          </span>
+                        </div>
+                      )}
+                      <div className="text-slate-400 text-xs">
+                        Approved: {formatDateTime(req.approvedAt)}
+                      </div>
+                    </div>
+
+                    <div className="mt-4">
+                      <Button
+                        variant="primary"
+                        onClick={() => handleConfirmReceipt(req)}
+                        disabled={processingId === req.id}
+                        fullWidth
+                      >
+                        <svg
+                          className="w-5 h-5 mr-2"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                          />
+                        </svg>
+                        Confirm Receipt
+                      </Button>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* Request History */}
           <div>
             <h2 className="text-xl font-semibold text-white mb-4">
@@ -320,16 +505,30 @@ function RequestVerificationPage() {
                     </div>
 
                     <div className="space-y-2 text-sm">
-                      <div className="text-slate-300">
-                        Vehicle:{" "}
-                        <span className="text-white">
-                          {req.vehicleModelName || "Unknown"}
-                        </span>
-                      </div>
-                      <div className="text-slate-300">
-                        Quantity:{" "}
-                        <span className="text-white">{req.quantity}</span>
-                      </div>
+                      {req.items && req.items.length > 0 ? (
+                        <div>
+                          <div className="text-slate-300 font-semibold mb-1">
+                            Vehicles:
+                          </div>
+                          {req.items.slice(0, 2).map((item, idx) => (
+                            <div
+                              key={idx}
+                              className="text-slate-300 ml-2 text-xs"
+                            >
+                              • {item.vehicleModelName} × {item.quantity}
+                            </div>
+                          ))}
+                          {req.items.length > 2 && (
+                            <div className="text-slate-400 text-xs ml-2">
+                              +{req.items.length - 2} more...
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="text-slate-300">
+                          Vehicle: <span className="text-white">Unknown</span>
+                        </div>
+                      )}
                       {req.note && (
                         <div className="text-slate-300">
                           Note:{" "}
@@ -377,18 +576,26 @@ function RequestVerificationPage() {
                   {selectedRequest.id?.substring(0, 8)}...
                 </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400">Vehicle:</span>
-                <span className="text-white font-semibold">
-                  {selectedRequest.vehicleModelName || "Unknown"}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400">Quantity:</span>
-                <span className="text-white font-semibold">
-                  {selectedRequest.quantity} units
-                </span>
-              </div>
+              {selectedRequest.items && selectedRequest.items.length > 0 ? (
+                <div className="border-t border-slate-600 pt-2">
+                  <span className="text-slate-400 text-sm">Vehicles:</span>
+                  {selectedRequest.items.map((item, idx) => (
+                    <div key={idx} className="flex justify-between mt-1">
+                      <span className="text-white text-sm">
+                        {item.vehicleModelName}
+                      </span>
+                      <span className="text-blue-400 font-semibold text-sm">
+                        {item.quantity} units
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Vehicle:</span>
+                  <span className="text-white font-semibold">Unknown</span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-slate-400">Created by:</span>
                 <span className="text-white">
@@ -456,18 +663,26 @@ function RequestVerificationPage() {
                   {selectedRequest.id?.substring(0, 8)}...
                 </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400">Vehicle:</span>
-                <span className="text-white font-semibold">
-                  {selectedRequest.vehicleModelName || "Unknown"}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400">Quantity:</span>
-                <span className="text-white font-semibold">
-                  {selectedRequest.quantity} units
-                </span>
-              </div>
+              {selectedRequest.items && selectedRequest.items.length > 0 ? (
+                <div className="border-t border-slate-600 pt-2">
+                  <span className="text-slate-400 text-sm">Vehicles:</span>
+                  {selectedRequest.items.map((item, idx) => (
+                    <div key={idx} className="flex justify-between mt-1">
+                      <span className="text-white text-sm">
+                        {item.vehicleModelName}
+                      </span>
+                      <span className="text-blue-400 font-semibold text-sm">
+                        {item.quantity} units
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Vehicle:</span>
+                  <span className="text-white font-semibold">Unknown</span>
+                </div>
+              )}
             </div>
 
             <div>
@@ -516,6 +731,91 @@ function RequestVerificationPage() {
                 }
               >
                 Confirm Rejection
+              </Button>
+            </Modal.Footer>
+          </div>
+        )}
+      </Modal>
+
+      {/* Confirm Receipt Modal */}
+      <Modal
+        isOpen={showConfirmReceiptModal}
+        onClose={() => {
+          setShowConfirmReceiptModal(false);
+          setSelectedRequest(null);
+        }}
+        title="Confirm Receipt of Vehicles"
+        size="md"
+      >
+        {selectedRequest && (
+          <div className="space-y-4">
+            <div className="bg-slate-700 rounded-lg p-4 space-y-2">
+              <div className="flex justify-between">
+                <span className="text-slate-400">Request ID:</span>
+                <span className="text-white font-mono text-sm">
+                  {selectedRequest.id?.substring(0, 8)}...
+                </span>
+              </div>
+              {selectedRequest.items && selectedRequest.items.length > 0 && (
+                <div className="border-t border-slate-600 pt-2">
+                  <span className="text-slate-400 text-sm">
+                    Vehicles Received:
+                  </span>
+                  {selectedRequest.items.map((item, idx) => (
+                    <div key={idx} className="flex justify-between mt-1">
+                      <span className="text-white text-sm">
+                        {item.vehicleModelName}
+                      </span>
+                      <span className="text-green-400 font-semibold text-sm">
+                        {item.quantity} units
+                      </span>
+                    </div>
+                  ))}
+                  <div className="text-slate-400 text-xs mt-2">
+                    Total:{" "}
+                    {selectedRequest.items.reduce(
+                      (sum, item) => sum + item.quantity,
+                      0
+                    )}{" "}
+                    units
+                  </div>
+                </div>
+              )}
+              {selectedRequest.expectedDeliveryDate && (
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Expected Delivery:</span>
+                  <span className="text-white">
+                    {formatDateTime(selectedRequest.expectedDeliveryDate)}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <div className="bg-green-500 bg-opacity-10 border border-green-500 rounded-lg p-3">
+              <p className="text-green-400 text-sm">
+                ✓ By confirming receipt, these vehicles will be added to your
+                dealership's inventory.
+              </p>
+            </div>
+
+            <Modal.Footer>
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setShowConfirmReceiptModal(false);
+                  setSelectedRequest(null);
+                }}
+                disabled={processingId}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                onClick={confirmReceipt}
+                isLoading={processingId === selectedRequest.id}
+                disabled={processingId === selectedRequest.id}
+              >
+                Confirm Receipt
               </Button>
             </Modal.Footer>
           </div>

@@ -37,22 +37,21 @@ export const vehicleRequestApi = {
 
   /**
    * Create new vehicle request (Dealer Staff creates restock order)
+   * Supports requesting multiple vehicles at once
    * @param {Object} requestData - Request data
    * @param {string} requestData.createdBy - User UUID who creates the request
-   * @param {string} requestData.vehicleId - Vehicle UUID
    * @param {string} requestData.dealerId - Dealer UUID
-   * @param {number} requestData.quantity - Quantity requested
    * @param {string} requestData.note - Optional note/reason for request
+   * @param {Array} requestData.items - Array of items [{vehicleId: string, quantity: number}]
    * @returns {Promise} Response with created vehicle request
    */
   create: async (requestData) => {
     try {
       const requestBody = {
         createdBy: requestData.createdBy,
-        vehicleId: requestData.vehicleId,
         dealerId: requestData.dealerId,
-        quantity: requestData.quantity,
         note: requestData.note || "",
+        items: requestData.items || [],
       };
 
       console.log("Creating vehicle request:", requestBody);
@@ -124,16 +123,19 @@ export const vehicleRequestApi = {
    * Approve vehicle request by EVM Staff
    * @param {string} requestId - Request UUID
    * @param {string} evmStaffId - EVM Staff UUID who approves the request
+   * @param {string} expectedDeliveryDate - Expected delivery date (ISO 8601 format)
    * @returns {Promise} Response with approved request
    */
-  approveByEVM: async (requestId, evmStaffId) => {
+  approveByEVM: async (requestId, evmStaffId, expectedDeliveryDate) => {
     try {
       console.log("EVM Staff approving vehicle request:", {
         requestId,
         evmStaffId,
+        expectedDeliveryDate,
       });
       const response = await apiClient.post(
-        `/api/VehicleRequest/${requestId}/approve-evm?evmStaffId=${evmStaffId}`
+        `/api/VehicleRequest/${requestId}/approve-evm?evmStaffId=${evmStaffId}`,
+        { expectedDeliveryDate }
       );
       console.log(
         "Vehicle request approved by EVM Staff successfully:",
@@ -171,6 +173,29 @@ export const vehicleRequestApi = {
       return response.data;
     } catch (error) {
       console.error("Error rejecting vehicle request by EVM Staff:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Confirm receipt of shipped vehicles (Dealer Manager)
+   * @param {string} requestId - Request UUID
+   * @param {string} dealerId - Dealer UUID
+   * @returns {Promise} Response with confirmed request
+   */
+  confirmReceipt: async (requestId, dealerId) => {
+    try {
+      console.log("Confirming receipt of vehicle request:", {
+        requestId,
+        dealerId,
+      });
+      const response = await apiClient.put(
+        `/api/VehicleRequest/${requestId}/confirm-receipt?dealerId=${dealerId}`
+      );
+      console.log("Receipt confirmed successfully:", response.data);
+      return response.data;
+    } catch (error) {
+      console.error("Error confirming receipt:", error);
       throw error;
     }
   },

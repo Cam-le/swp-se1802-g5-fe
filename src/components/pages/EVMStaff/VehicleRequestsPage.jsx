@@ -10,6 +10,7 @@ import {
   Button,
   Modal,
 } from "../../common";
+import InputField from "../../common/InputField";
 import { useAuth } from "../../../hooks/useAuth";
 import { vehicleRequestApi } from "../../../services/vehicleRequestApi";
 import { formatDateTime } from "../../../utils/helpers";
@@ -26,6 +27,7 @@ function VehicleRequestsPage() {
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [rejectReason, setRejectReason] = useState("");
+  const [expectedDeliveryDate, setExpectedDeliveryDate] = useState("");
 
   useEffect(() => {
     fetchRequests();
@@ -65,6 +67,10 @@ function VehicleRequestsPage() {
 
   const handleApprove = (request) => {
     setSelectedRequest(request);
+    // Set default date to 7 days from now
+    const defaultDate = new Date();
+    defaultDate.setDate(defaultDate.getDate() + 7);
+    setExpectedDeliveryDate(defaultDate.toISOString().split("T")[0]);
     setShowApproveModal(true);
   };
 
@@ -77,24 +83,36 @@ function VehicleRequestsPage() {
       return;
     }
 
+    if (!expectedDeliveryDate) {
+      setAlert({
+        type: "error",
+        message: "Please select an expected delivery date",
+      });
+      return;
+    }
+
     try {
       setProcessingId(selectedRequest.id);
       setAlert({ type: "", message: "" });
 
+      // Convert to ISO 8601 format with time
+      const dateTime = new Date(expectedDeliveryDate).toISOString();
+
       const response = await vehicleRequestApi.approveByEVM(
         selectedRequest.id,
-        user.id
+        user.id,
+        dateTime
       );
 
       if (response.isSuccess) {
         setAlert({
           type: "success",
           message:
-            "Request approved successfully! Vehicles will be allocated to the dealer.",
+            "Request approved successfully! Vehicles will be shipped to the dealer.",
         });
         setShowApproveModal(false);
         setSelectedRequest(null);
-        // Refresh the list
+        setExpectedDeliveryDate("");
         fetchRequests();
       } else {
         setAlert({
@@ -155,7 +173,6 @@ function VehicleRequestsPage() {
         setShowRejectModal(false);
         setSelectedRequest(null);
         setRejectReason("");
-        // Refresh the list
         fetchRequests();
       } else {
         setAlert({
@@ -182,7 +199,7 @@ function VehicleRequestsPage() {
         return "warning";
       case "Pending EVM Allocation":
         return "info";
-      case "completed":
+      case "Shipped":
         return "success";
       case "Rejected":
         return "danger";
@@ -196,7 +213,7 @@ function VehicleRequestsPage() {
     const counts = {
       pendingManagerApproval: 0,
       pendingEVMAllocation: 0,
-      completed: 0,
+      shipped: 0,
       rejected: 0,
     };
 
@@ -206,8 +223,8 @@ function VehicleRequestsPage() {
         counts.pendingManagerApproval++;
       } else if (status === "Pending EVM Allocation") {
         counts.pendingEVMAllocation++;
-      } else if (status === "completed") {
-        counts.completed++;
+      } else if (status === "Shipped") {
+        counts.shipped++;
       } else if (status === "Rejected") {
         counts.rejected++;
       }
@@ -289,9 +306,9 @@ function VehicleRequestsPage() {
             <Card>
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-slate-400">Completed</p>
+                  <p className="text-sm text-slate-400">Shipped</p>
                   <p className="text-2xl font-bold text-white mt-1">
-                    {statusCounts.completed}
+                    {statusCounts.shipped}
                   </p>
                 </div>
                 <div className="w-12 h-12 bg-green-500 bg-opacity-20 rounded-lg flex items-center justify-center">
@@ -318,7 +335,12 @@ function VehicleRequestsPage() {
                   <p className="text-sm text-slate-400">Total Units</p>
                   <p className="text-2xl font-bold text-white mt-1">
                     {requests.reduce(
-                      (sum, req) => sum + (req.quantity || 0),
+                      (sum, req) =>
+                        sum +
+                        (req.items?.reduce(
+                          (itemSum, item) => itemSum + (item.quantity || 0),
+                          0
+                        ) || 0),
                       0
                     )}
                   </p>
@@ -377,7 +399,7 @@ function VehicleRequestsPage() {
               <Table>
                 <Table.Header>
                   <Table.HeaderCell>Request Details</Table.HeaderCell>
-                  <Table.HeaderCell>Vehicle & Quantity</Table.HeaderCell>
+                  <Table.HeaderCell>Vehicles & Quantity</Table.HeaderCell>
                   <Table.HeaderCell>Dealer Info</Table.HeaderCell>
                   <Table.HeaderCell>Status</Table.HeaderCell>
                   <Table.HeaderCell>Actions</Table.HeaderCell>
@@ -398,6 +420,12 @@ function VehicleRequestsPage() {
                               "{req.note}"
                             </p>
                           )}
+                          {req.expectedDeliveryDate && (
+                            <p className="text-xs text-blue-400">
+                              Expected:{" "}
+                              {formatDateTime(req.expectedDeliveryDate)}
+                            </p>
+                          )}
                           {req.cancellationReason && (
                             <p className="text-xs text-red-300 bg-red-500 bg-opacity-10 p-1 rounded">
                               Reason: "{req.cancellationReason}"
@@ -407,12 +435,30 @@ function VehicleRequestsPage() {
                       </Table.Cell>
                       <Table.Cell>
                         <div className="space-y-1">
-                          <p className="font-semibold text-white">
-                            {req.vehicleModelName || "Unknown Vehicle"}
-                          </p>
-                          <p className="text-sm text-blue-400 font-semibold">
-                            {req.quantity} units
-                          </p>
+                          {req.items && req.items.length > 0 ? (
+                            <>
+                              {req.items.map((item, idx) => (
+                                <div key={idx} className="text-sm">
+                                  <span className="font-semibold text-white">
+                                    {item.vehicleModelName || "Unknown"}
+                                  </span>
+                                  <span className="text-blue-400 ml-2">
+                                    × {item.quantity}
+                                  </span>
+                                </div>
+                              ))}
+                              <div className="text-xs text-slate-400 mt-1">
+                                Total:{" "}
+                                {req.items.reduce(
+                                  (sum, item) => sum + item.quantity,
+                                  0
+                                )}{" "}
+                                units
+                              </div>
+                            </>
+                          ) : (
+                            <p className="text-sm text-slate-400">No items</p>
+                          )}
                         </div>
                       </Table.Cell>
                       <Table.Cell>
@@ -451,9 +497,9 @@ function VehicleRequestsPage() {
                             </Button>
                           </div>
                         )}
-                        {req.status === "completed" && (
+                        {req.status === "Shipped" && (
                           <span className="text-green-400 text-sm">
-                            ✓ Completed
+                            ✓ Shipped
                           </span>
                         )}
                         {req.status === "Rejected" && (
@@ -481,6 +527,7 @@ function VehicleRequestsPage() {
           onClose={() => {
             setShowApproveModal(false);
             setSelectedRequest(null);
+            setExpectedDeliveryDate("");
           }}
           title="Approve Vehicle Request"
           size="md"
@@ -494,18 +541,21 @@ function VehicleRequestsPage() {
                     {selectedRequest.id?.substring(0, 8)}...
                   </span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Vehicle:</span>
-                  <span className="text-white font-semibold">
-                    {selectedRequest.vehicleModelName || "Unknown"}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Quantity:</span>
-                  <span className="text-white font-semibold">
-                    {selectedRequest.quantity} units
-                  </span>
-                </div>
+                {selectedRequest.items && selectedRequest.items.length > 0 && (
+                  <div className="border-t border-slate-600 pt-2">
+                    <span className="text-slate-400 text-sm">Vehicles:</span>
+                    {selectedRequest.items.map((item, idx) => (
+                      <div key={idx} className="flex justify-between mt-1">
+                        <span className="text-white text-sm">
+                          {item.vehicleModelName}
+                        </span>
+                        <span className="text-blue-400 font-semibold text-sm">
+                          {item.quantity} units
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="text-slate-400">Dealer:</span>
                   <span className="text-white">
@@ -522,10 +572,36 @@ function VehicleRequestsPage() {
                 )}
               </div>
 
+              {/* Expected Delivery Date */}
+              <InputField
+                id="expectedDeliveryDate"
+                name="expectedDeliveryDate"
+                type="date"
+                label="Expected Delivery Date"
+                value={expectedDeliveryDate}
+                onChange={(e) => setExpectedDeliveryDate(e.target.value)}
+                error={!expectedDeliveryDate ? "Required" : ""}
+                icon={
+                  <svg
+                    className="w-5 h-5 text-slate-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                    />
+                  </svg>
+                }
+              />
+
               <div className="bg-blue-500 bg-opacity-10 border border-blue-500 rounded-lg p-3">
                 <p className="text-blue-400 text-sm">
-                  ⓘ By approving this request, the vehicles will be allocated to
-                  the dealer's inventory.
+                  ⓘ By approving this request, the vehicles will be allocated
+                  and shipped to the dealer by the expected delivery date.
                 </p>
               </div>
 
@@ -535,6 +611,7 @@ function VehicleRequestsPage() {
                   onClick={() => {
                     setShowApproveModal(false);
                     setSelectedRequest(null);
+                    setExpectedDeliveryDate("");
                   }}
                   disabled={processingId}
                 >
@@ -544,7 +621,9 @@ function VehicleRequestsPage() {
                   variant="primary"
                   onClick={confirmApprove}
                   isLoading={processingId === selectedRequest.id}
-                  disabled={processingId === selectedRequest.id}
+                  disabled={
+                    processingId === selectedRequest.id || !expectedDeliveryDate
+                  }
                 >
                   Confirm Approval
                 </Button>
@@ -573,18 +652,21 @@ function VehicleRequestsPage() {
                     {selectedRequest.id?.substring(0, 8)}...
                   </span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Vehicle:</span>
-                  <span className="text-white font-semibold">
-                    {selectedRequest.vehicleModelName || "Unknown"}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Quantity:</span>
-                  <span className="text-white font-semibold">
-                    {selectedRequest.quantity} units
-                  </span>
-                </div>
+                {selectedRequest.items && selectedRequest.items.length > 0 && (
+                  <div className="border-t border-slate-600 pt-2">
+                    <span className="text-slate-400 text-sm">Vehicles:</span>
+                    {selectedRequest.items.map((item, idx) => (
+                      <div key={idx} className="flex justify-between mt-1">
+                        <span className="text-white text-sm">
+                          {item.vehicleModelName}
+                        </span>
+                        <span className="text-blue-400 font-semibold text-sm">
+                          {item.quantity} units
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="text-slate-400">Dealer:</span>
                   <span className="text-white">
