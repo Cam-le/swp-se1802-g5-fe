@@ -45,7 +45,7 @@ function CustomersPage() {
     };
 
     const openCreateModal = () => {
-        setFormData({ full_name: "", email: "", phone: "", address: "" });
+        setFormData({ fullName: "", email: "", phone: "", address: "" });
         setFormErrors({});
         setAlert({ type: "", message: "" });
         setIsModalOpen(true);
@@ -96,9 +96,8 @@ function CustomersPage() {
                 dealer_staff_id: user?.id,
             };
             const newCustomer = await customerApi.create(payload);
-            // Prepend to list so it's visible immediately
-            setCustomers((prev) => [newCustomer, ...prev]);
             setAlert({ type: "success", message: "Customer added successfully" });
+            await fetchCustomers();
             setTimeout(() => {
                 closeModal();
             }, 800);
@@ -245,7 +244,7 @@ function CustomersPage() {
                 <Modal isOpen={isModalOpen} onClose={closeModal} title="Add Customer">
                     <form onSubmit={handleSubmit}>
                         <div className="grid grid-cols-1 gap-4">
-                            <InputField id="full_name" name="full_name" label="Full Name" value={formData.full_name} onChange={handleInputChange} error={formErrors.full_name} />
+                            <InputField id="fullName" name="fullName" label="Full Name" value={formData.fullName} onChange={handleInputChange} error={formErrors.fullName} />
                             <InputField id="email" name="email" label="Email" value={formData.email} onChange={handleInputChange} error={formErrors.email} />
                             <InputField id="phone" name="phone" label="Phone" value={formData.phone} onChange={handleInputChange} error={formErrors.phone || phoneError} />
                             <InputField id="address" name="address" label="Address" value={formData.address} onChange={handleInputChange} error={formErrors.address} />

@@ -48,13 +48,12 @@ function DealerManagerOrdersPage() {
                 setLoading(true);
                 const [ordersData, customersData, vehiclesResponse] = await Promise.all([
                     orderApi.getAll(user?.dealer_id, user?.id),
-                    customerApi.getAll(user?.id),
+                    customerApi.getAll(),
                     vehicleApi.getAll(user?.id)
                 ]);
                 setOrders(Array.isArray(ordersData) ? ordersData : []);
                 setCustomers(Array.isArray(customersData) ? customersData : []);
                 let vehicles = [];
-                // Support both real API (object with .data) and mock API (array)
                 if (Array.isArray(vehiclesResponse)) {
                     vehicles = vehiclesResponse.filter(v => v.status === "Available");
                 } else if (vehiclesResponse && Array.isArray(vehiclesResponse.data)) {

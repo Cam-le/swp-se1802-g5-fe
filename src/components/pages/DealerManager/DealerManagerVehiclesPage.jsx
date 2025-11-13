@@ -15,7 +15,8 @@ import {
 } from "../../common";
 import { formatCurrency, formatShortDate } from "../../../utils/helpers";
 import { vehicleApi } from "../../../services/vehicleApi";
-import { orderApi, customerApi } from "../../../services/mockApi";
+import { orderApi } from "../../../services/mockApi";
+import { customerApi } from "../../../services/customerApi";
 import { useAuth } from "../../../hooks/useAuth";
 import CarDetail from "../DealerStaff/CarDetail";
 
@@ -384,14 +385,16 @@ function DealerManagerVehiclesPage() {
   const [orders, setOrders] = useState([]);
   useEffect(() => {
     const fetchCustomers = async () => {
-      if (!user?.id) return;
       try {
-        const data = await customerApi.getAll(user.id);
+        const data = await customerApi.getAll();
         setCustomers(Array.isArray(data) ? data : []);
-      } catch (err) { }
+        console.log("Fetched customers:", data);
+      } catch (err) {
+        console.error("Error fetching customers:", err);
+      }
     };
     fetchCustomers();
-  }, [user?.id]);
+  }, []);
 
   const handleOrderSubmit = async (e) => {
     e.preventDefault();
@@ -408,19 +411,19 @@ function DealerManagerVehiclesPage() {
         setOrderSubmitting(false);
         return;
       }
+      // Find customer by name, phone, address
       let customer = customers.find(
-        (c) =>
-          c.phone.trim() === orderForm.customerPhone.trim()
+        (c) => String(c.phone || c.Phone || c.phoneNumber).replace(/\D/g, "") === String(orderForm.customerPhone).replace(/\D/g, "")
       );
       let customer_id = customer ? customer.id : null;
+      // If not found, create new customer
       if (!customer_id) {
         const payload = {
-          full_name: orderForm.customerName.trim(),
+          fullName: orderForm.customerName.trim(),
           phone: orderForm.customerPhone.trim(),
           address: orderForm.customerAddress.trim(),
           email: orderForm.customerGmail.trim(),
           dealer_staff_id: user?.id,
-          is_active: true,
         };
         const newCustomer = await customerApi.create(payload);
         customer_id = newCustomer.id;
@@ -1018,8 +1021,8 @@ function DealerManagerVehiclesPage() {
                   onChange={handleInputChange}
                   rows={3}
                   className={`w-full px-4 py-3 bg-slate-700 border ${formErrors.description
-                      ? "border-red-500"
-                      : "border-slate-600"
+                    ? "border-red-500"
+                    : "border-slate-600"
                     } rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition`}
                   placeholder="Enter vehicle description..."
                 />

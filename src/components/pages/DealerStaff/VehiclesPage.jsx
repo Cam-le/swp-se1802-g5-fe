@@ -15,7 +15,8 @@ import {
 } from "../../common";
 import { formatCurrency, formatShortDate } from "../../../utils/helpers";
 import { vehicleApi } from "../../../services/vehicleApi";
-import { orderApi, customerApi } from "../../../services/mockApi";
+import { orderApi } from "../../../services/mockApi";
+import { customerApi } from "../../../services/customerApi";
 import { useAuth } from "../../../hooks/useAuth";
 import CarDetail from "./CarDetail";
 
