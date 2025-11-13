@@ -1,7 +1,6 @@
-
 import { useEffect, useState } from "react";
 import { DashboardLayout } from "../../layout";
-import { Card, Button, Modal, InputField, Select, LoadingSpinner, Alert, EmptyState } from "../../common";
+import { Button, Modal, InputField, Select, LoadingSpinner, Alert, EmptyState } from "../../common";
 import { useAuth } from "../../../hooks/useAuth";
 import { formatCurrency, formatDateTime } from "../../../utils/helpers";
 import { orderApi, customerApi } from "../../../services/mockApi";
@@ -227,46 +226,47 @@ function DealerManagerOrdersPage() {
 
                 {alert.message && <Alert type={alert.type}>{alert.message}</Alert>}
 
-                {/* Orders Grid */}
-                <div>
-                    {loading ? (
-                        <div className="flex justify-center items-center py-12">
-                            <LoadingSpinner size="lg" text="Loading orders..." />
-                        </div>
-                    ) : orders.length === 0 ? (
-                        <EmptyState title="No orders found" description="You don't have any orders yet." action={openCreateModal} actionLabel="Create Order" />
-                    ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {/* Orders Table */}
+                <div className="overflow-x-auto rounded-lg shadow">
+                    <table className="min-w-full bg-slate-800 text-white">
+                        <thead>
+                            <tr className="bg-slate-700">
+                                <th className="px-4 py-2 text-left">Order ID</th>
+                                <th className="px-4 py-2 text-left">Date</th>
+                                <th className="px-4 py-2 text-left">Customer</th>
+                                <th className="px-4 py-2 text-left">Vehicle</th>
+                                <th className="px-4 py-2 text-left">Status</th>
+                                <th className="px-4 py-2 text-left">Total</th>
+                                <th className="px-4 py-2 text-left">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
                             {orders.map((o) => {
-                                // Find customer and vehicle info
                                 const customer = customers.find(c => c.id === o.customer_id);
                                 const vehicle = availableVehicles.find(v => v.id === o.vehicle_id);
                                 return (
-                                    <Card key={o.id} hover>
-                                        <div className="flex items-center justify-between mb-2">
-                                            <div>
-                                                <div className="text-slate-400 text-sm">Order ID</div>
-                                                <div className="text-white font-medium">{o.id}</div>
-                                            </div>
-                                            <div className="text-right">
-                                                <div className="text-slate-400 text-sm">Date</div>
-                                                <div className="text-white font-semibold">{formatDateTime(o.created_at)}</div>
-                                            </div>
-                                        </div>
-                                        <div className="text-slate-300 text-sm mb-2">Customer: <span className="text-white">{customer ? customer.full_name : o.customer_id}</span></div>
-                                        <div className="text-slate-300 text-sm mb-2">Vehicle: <span className="text-white">{vehicle ? `${vehicle.modelName || vehicle.model_name} ${vehicle.version || ''}` : o.vehicle_id}</span></div>
-                                        <div className="text-slate-400 text-sm mt-2">Status: <span className="text-white capitalize">{o.order_status || o.status}</span></div>
-                                        <div className="text-slate-400 text-sm mt-2">Total: <span className="text-white font-semibold">{formatCurrency(o.total_amount || o.total_price || 0)}</span></div>
-                                        <div className="flex justify-end mt-4">
-                                            <Button variant="primary" size="sm" onClick={() => handleShowOrderDetail(o)}>
-                                                Details
+                                    <tr key={o.id} className="border-b border-slate-700">
+                                        <td className="px-4 py-2">{o.id}</td>
+                                        <td className="px-4 py-2">{formatDateTime(o.created_at)}</td>
+                                        <td className="px-4 py-2">{customer ? (customer.fullName || customer.full_name) : o.customer_id}</td>
+                                        <td className="px-4 py-2">{vehicle ? `${vehicle.modelName || vehicle.model_name} ${vehicle.version || ''}` : o.vehicle_id}</td>
+                                        <td className="px-4 py-2">
+                                            <span className={`px-2 py-1 rounded text-xs font-semibold ${o.order_status === "confirmed" ? "bg-green-500 text-white" : "bg-slate-600"}`}>{o.order_status || o.status}</span>
+                                        </td>
+                                        <td className="px-4 py-2 font-bold text-orange-400">{formatCurrency(o.total_amount || o.total_price || 0)}</td>
+                                        <td className="px-4 py-2 flex gap-2">
+                                            <Button variant="primary" size="sm" onClick={() => handleShowOrderDetail(o)} title="Details">
+                                                <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                                </svg>
                                             </Button>
-                                        </div>
-                                    </Card>
+                                        </td>
+                                    </tr>
                                 );
                             })}
-                        </div>
-                    )}
+                        </tbody>
+                    </table>
                 </div>
 
                 {/* Create Order Modal */}

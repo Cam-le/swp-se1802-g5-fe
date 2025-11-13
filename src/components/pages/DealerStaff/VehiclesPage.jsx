@@ -56,7 +56,7 @@ function VehiclesPage() {
     customerName: "",
     customerPhone: "",
     customerAddress: "",
-    customerRequest: "",
+    customerGmail: "",
     paymentType: "full",
     quantity: 1,
   });
@@ -69,7 +69,7 @@ function VehiclesPage() {
       customerName: "",
       customerPhone: "",
       customerAddress: "",
-      customerRequest: "",
+      customerGmail: "",
       paymentType: "full",
       quantity: 1,
     });
@@ -81,8 +81,36 @@ function VehiclesPage() {
     setOrderVehicle(null);
     setOrderError("");
   };
+  // Autofill customer info when phone changes
   const handleOrderInputChange = (e) => {
     const { name, value, type } = e.target;
+    // Debug: log customers and input
+    if (name === "customerPhone") {
+      console.log("Input phone:", value);
+      console.log("Customers:", customers);
+      const normalizedPhone = value.replace(/\D/g, "");
+      if (Array.isArray(customers) && customers.length > 0) {
+        for (const c of customers) {
+          if (c && typeof c.phone === "string") {
+            console.log("Checking customer:", c.phone, c.fullName);
+            if (c.phone.replace(/\D/g, "") === normalizedPhone) {
+              console.log("Match found:", c);
+              setOrderForm(prev => ({
+                ...prev,
+                customerPhone: value,
+                customerName: c.fullName || "",
+                customerAddress: c.address || "",
+                customerGmail: c.email || "",
+              }));
+              return;
+            }
+          }
+        }
+        console.log("No match found for:", normalizedPhone);
+      } else {
+        console.log("Customers array is empty or not loaded");
+      }
+    }
     setOrderForm((prev) => ({
       ...prev,
       [name]: type === "number" ? Number(value) : value,
@@ -136,6 +164,21 @@ function VehiclesPage() {
   useEffect(() => {
     filterVehicles();
   }, [searchQuery, statusFilter, vehicles]);
+
+  // Fetch all customers from backend on mount and log them for debugging
+  useEffect(() => {
+    const fetchCustomers = async () => {
+      try {
+        const data = await customerApi.getAll();
+        console.log("Raw customerApi.getAll() result:", data);
+        setCustomers(Array.isArray(data) ? data : []);
+        console.log("Set customers:", Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error("Error fetching customers:", err);
+      }
+    };
+    fetchCustomers();
+  }, []);
 
   const fetchVehicles = async () => {
     try {
@@ -385,7 +428,7 @@ function VehiclesPage() {
       try {
         const data = await customerApi.getAll(user.id);
         setCustomers(Array.isArray(data) ? data : []);
-      } catch (err) {}
+      } catch (err) { }
     };
     fetchCustomers();
   }, [user?.id]);
@@ -407,22 +450,17 @@ function VehiclesPage() {
       }
       // Find customer by name, phone, address
       let customer = customers.find(
-        (c) =>
-          c.full_name.trim().toLowerCase() ===
-            orderForm.customerName.trim().toLowerCase() &&
-          c.phone.trim() === orderForm.customerPhone.trim() &&
-          c.address.trim().toLowerCase() ===
-            orderForm.customerAddress.trim().toLowerCase()
+        (c) => String(c.phone || c.Phone || c.phoneNumber).replace(/\D/g, "") === String(orderForm.customerPhone).replace(/\D/g, "")
       );
       let customer_id = customer ? customer.id : null;
       // If not found, create new customer
       if (!customer_id) {
         const payload = {
-          full_name: orderForm.customerName.trim(),
+          fullName: orderForm.customerName.trim(),
           phone: orderForm.customerPhone.trim(),
           address: orderForm.customerAddress.trim(),
+          email: orderForm.customerGmail.trim(),
           dealer_staff_id: user?.id,
-          is_active: true, // Always set new customer as Active
         };
         const newCustomer = await customerApi.create(payload);
         customer_id = newCustomer.id;
@@ -443,6 +481,7 @@ function VehiclesPage() {
         order_status: "confirmed",
         quantity: qty,
         customer_request: orderForm.customerRequest,
+        customer_gmail: orderForm.customerGmail,
       };
       const created = await orderApi.create(payload);
       setOrders((prev) => [created, ...prev]);
@@ -860,11 +899,10 @@ function VehiclesPage() {
                   value={formData.description}
                   onChange={handleInputChange}
                   rows={3}
-                  className={`w-full px-4 py-3 bg-slate-700 border ${
-                    formErrors.description
-                      ? "border-red-500"
-                      : "border-slate-600"
-                  } rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition`}
+                  className={`w-full px-4 py-3 bg-slate-700 border ${formErrors.description
+                    ? "border-red-500"
+                    : "border-slate-600"
+                    } rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition`}
                   placeholder="Enter vehicle description..."
                 />
                 {formErrors.description && (
@@ -958,8 +996,8 @@ function VehiclesPage() {
                   alt={orderVehicle.modelName}
                   className="w-32 h-24 object-cover rounded bg-slate-700 border border-slate-600"
                   onError={(e) =>
-                    (e.target.src =
-                      "https://via.placeholder.com/128x96?text=No+Image")
+                  (e.target.src =
+                    "https://via.placeholder.com/128x96?text=No+Image")
                   }
                 />
                 <div className="flex-1">
@@ -1052,6 +1090,15 @@ function VehiclesPage() {
                     value={orderForm.customerAddress}
                     onChange={handleOrderInputChange}
                     placeholder="Nhập địa chỉ"
+                    required
+                  />
+                  <InputField
+                    id="customerGmail"
+                    name="customerGmail"
+                    label="Gmail"
+                    value={orderForm.customerGmail}
+                    onChange={handleOrderInputChange}
+                    placeholder="Nhập gmail"
                     required
                   />
                   <InputField

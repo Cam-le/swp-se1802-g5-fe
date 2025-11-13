@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { DashboardLayout } from "../../layout";
 import { Card, Modal, InputField, Select, Alert } from "../../common";
@@ -6,7 +5,7 @@ import VehicleSelectRich from "../../common/VehicleSelectRich";
 import { useAuth } from "../../../hooks/useAuth";
 import { MOCK_USERS } from "../../../data/mockData";
 import { formatDateTime } from "../../../utils/helpers";
-import { customerApi } from "../../../services/mockApi";
+import { customerApi } from "../../../services/customerApi";
 import { vehicleApi } from "../../../services/vehicleApi";
 import { appointmentApi } from '../../../services/mockApi';
 import EmptyState from "../../common/EmptyState";
@@ -82,10 +81,10 @@ function DealerManagerAppointmentsPage() {
     useEffect(() => {
         // Fetch customers, vehicles, and appointments for selection and display
         async function fetchData() {
-            setLoading(true); // Set loading to true when fetching data
+            setLoading(true);
             try {
                 const [custs, vehs, appts] = await Promise.all([
-                    customerApi.getAll(user?.id),
+                    customerApi.getAll(),
                     vehicleApi.getAll(user?.id),
                     appointmentApi.getAll(user?.id)
                 ]);
@@ -96,7 +95,7 @@ function DealerManagerAppointmentsPage() {
             } catch (err) {
                 setAlert({ type: 'error', message: 'Failed to load customers, vehicles, or appointments' });
             } finally {
-                setLoading(false); // Set loading to false after data is fetched
+                setLoading(false);
             }
         }
         fetchData();
@@ -256,7 +255,10 @@ function DealerManagerAppointmentsPage() {
                                             <tr key={a.id} className="border-b border-slate-700">
                                                 <td className="px-4 py-2">{a.id}</td>
                                                 <td className="px-4 py-2">{formatDateTime(a.appointment_datetime)}</td>
-                                                <td className="px-4 py-2">{customer ? customer.full_name : a.customer_id}</td>
+                                                <td className="px-4 py-2">{(() => {
+                                                    const customer = customers.find(c => c.id === a.customer_id);
+                                                    return customer ? (customer.fullName || customer.full_name) : a.customer_id;
+                                                })()}</td>
                                                 <td className="px-4 py-2">{vehicle ? `${vehicle.model_name || vehicle.modelName} ${vehicle.version || ''}` : a.vehicle_id}</td>
                                                 <td className="px-4 py-2">
                                                     <span className={`px-2 py-1 rounded text-xs font-semibold ${a.status === "Pending" ? "bg-yellow-500 text-black" : a.status === "Scheduled" ? "bg-green-500 text-white" : a.status === "Cancelled" ? "bg-red-500 text-white" : "bg-slate-600"}`}>{a.status}</span>
@@ -294,7 +296,7 @@ function DealerManagerAppointmentsPage() {
                                                             <div className="space-y-4">
                                                                 <div className="text-lg font-bold text-white">Appointment ID: <span className="font-normal">{selectedAppointment.id}</span></div>
                                                                 <div className="text-slate-400">Date & Time: <span className="text-white">{formatDateTime(selectedAppointment.appointment_datetime)}</span></div>
-                                                                <div className="text-slate-400">Customer: <span className="text-white">{(customers.find(c => c.id === selectedAppointment.customer_id)?.full_name) || selectedAppointment.customer_id}</span></div>
+                                                                <div className="text-slate-400">Customer: <span className="text-white">{(customers.find(c => c.id === selectedAppointment.customer_id)?.fullName || customers.find(c => c.id === selectedAppointment.customer_id)?.full_name) || selectedAppointment.customer_id}</span></div>
                                                                 <div className="text-slate-400">Vehicle: <span className="text-white">{(vehicles.find(v => v.id === selectedAppointment.vehicle_id)?.modelName || vehicles.find(v => v.id === selectedAppointment.vehicle_id)?.model_name) || selectedAppointment.vehicle_id}</span></div>
                                                                 <div className="text-slate-400">Staff: <span className="text-white">{getStaff(selectedAppointment.dealer_staff_id)?.full_name || selectedAppointment.dealer_staff_id}</span></div>
                                                                 <div className="text-slate-400">Status: <span className="text-white capitalize">{selectedAppointment.status}</span></div>
@@ -377,7 +379,7 @@ function DealerManagerAppointmentsPage() {
                                 label="Customer"
                                 value={formData.customer_id}
                                 onChange={handleInputChange}
-                                options={customers.filter(c => c.is_active !== false).map((c) => ({ value: c.id, label: c.full_name }))}
+                                options={customers.map((c) => ({ value: c.id, label: c.fullName || c.full_name }))}
                                 error={formErrors.customer_id}
                                 placeholder="Select customer"
                             />
