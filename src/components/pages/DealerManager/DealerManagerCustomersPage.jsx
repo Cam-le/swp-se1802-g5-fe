@@ -4,7 +4,7 @@ import { DashboardLayout } from "../../layout";
 import { Card, Button, Modal, InputField, LoadingSpinner, Alert, EmptyState } from "../../common";
 import { useAuth } from "../../../hooks/useAuth";
 import { getInitials } from "../../../utils/helpers";
-import { customerApi } from "../../../services/mockApi";
+import { customerApi } from "../../../services/customerApi";
 
 function DealerManagerCustomersPage() {
     const { user } = useAuth();
@@ -14,11 +14,11 @@ function DealerManagerCustomersPage() {
 
     // Modal & form state
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [formData, setFormData] = useState({ full_name: "", email: "", phone: "", address: "" });
+    const [formData, setFormData] = useState({ fullName: "", email: "", phone: "", address: "" });
     // For details/edit modal
     const [isDetailsOpen, setIsDetailsOpen] = useState(false);
     const [selectedCustomer, setSelectedCustomer] = useState(null);
-    const [editData, setEditData] = useState({ full_name: "", email: "", phone: "", address: "" });
+    const [editData, setEditData] = useState({ fullName: "", email: "", phone: "", address: "" });
     const [editErrors, setEditErrors] = useState({});
     const [isEditSubmitting, setIsEditSubmitting] = useState(false);
     const [editAlert, setEditAlert] = useState({ type: "", message: "" });
@@ -35,7 +35,7 @@ function DealerManagerCustomersPage() {
         if (!user?.id) return;
         try {
             setLoading(true);
-            const data = await customerApi.getAll(user.id);
+            const data = await customerApi.getAll();
             setCustomers(Array.isArray(data) ? data : []);
         } catch (err) {
             setAlert({ type: "error", message: "Failed to load customers" });
@@ -45,7 +45,7 @@ function DealerManagerCustomersPage() {
     };
 
     const openCreateModal = () => {
-        setFormData({ full_name: "", email: "", phone: "", address: "" });
+        setFormData({ fullName: "", email: "", phone: "", address: "" });
         setFormErrors({});
         setAlert({ type: "", message: "" });
         setIsModalOpen(true);
@@ -71,7 +71,7 @@ function DealerManagerCustomersPage() {
 
     const validateForm = () => {
         const errors = {};
-        if (!formData.full_name.trim()) errors.full_name = "Full name is required";
+        if (!formData.fullName.trim()) errors.fullName = "Full name is required";
         if (!formData.email.trim()) errors.email = "Email is required";
         if (!formData.phone.trim()) errors.phone = "Phone is required";
         if (!formData.address.trim()) errors.address = "Address is required";
@@ -89,12 +89,11 @@ function DealerManagerCustomersPage() {
         try {
             setIsSubmitting(true);
             const payload = {
-                full_name: formData.full_name.trim(),
+                fullName: formData.fullName.trim(),
                 email: formData.email.trim(),
                 phone: formData.phone.trim(),
                 address: formData.address.trim(),
                 dealer_staff_id: user?.id,
-                is_active: true,
             };
             const newCustomer = await customerApi.create(payload);
             setCustomers((prev) => [newCustomer, ...prev]);
@@ -112,11 +111,10 @@ function DealerManagerCustomersPage() {
     const openDetailsModal = (customer) => {
         setSelectedCustomer(customer);
         setEditData({
-            full_name: customer.full_name || "",
+            fullName: customer.fullName || "",
             email: customer.email || "",
             phone: customer.phone || "",
             address: customer.address || "",
-            is_active: customer.is_active,
         });
         setEditErrors({});
         setEditAlert({ type: "", message: "" });
@@ -137,7 +135,7 @@ function DealerManagerCustomersPage() {
 
     const validateEditForm = () => {
         const errors = {};
-        if (!editData.full_name.trim()) errors.full_name = "Full name is required";
+        if (!editData.fullName.trim()) errors.fullName = "Full name is required";
         if (!editData.email.trim()) errors.email = "Email is required";
         if (!editData.phone.trim()) errors.phone = "Phone is required";
         if (!editData.address.trim()) errors.address = "Address is required";
@@ -202,13 +200,12 @@ function DealerManagerCustomersPage() {
                                 <Card key={c.id} hover className="flex items-start space-x-4 relative pb-8">
                                     <div className="flex-shrink-0">
                                         <div className="h-12 w-12 rounded-full bg-slate-700 flex items-center justify-center text-white font-semibold">
-                                            {getInitials(c.full_name)}
+                                            {getInitials(c.fullName)}
                                         </div>
                                     </div>
                                     <div className="flex-1">
                                         <div className="flex items-center justify-between">
-                                            <h3 className="text-white font-medium">{c.full_name}</h3>
-                                            <div className={`text-sm ${c.is_active ? 'text-green-400' : 'text-red-400'}`}>{c.is_active ? 'Active' : 'Inactive'}</div>
+                                            <h3 className="text-white font-medium">{c.fullName}</h3>
                                         </div>
                                         <div className="text-slate-300 text-sm mt-1">{c.email}</div>
                                         <div className="text-slate-400 text-sm mt-2">Phone: {c.phone}</div>
@@ -225,22 +222,10 @@ function DealerManagerCustomersPage() {
                             <Modal isOpen={isDetailsOpen} onClose={closeDetailsModal} title="Customer Details & Edit">
                                 {selectedCustomer && (
                                     <form onSubmit={handleEditSubmit} className="space-y-4">
-                                        <InputField id="full_name" name="full_name" label="Full Name" value={editData.full_name} onChange={handleEditInputChange} error={editErrors.full_name} />
+                                        <InputField id="fullName" name="fullName" label="Full Name" value={editData.fullName} onChange={handleEditInputChange} error={editErrors.fullName} />
                                         <InputField id="email" name="email" label="Email" value={editData.email} onChange={handleEditInputChange} error={editErrors.email} />
                                         <InputField id="phone" name="phone" label="Phone" value={editData.phone} onChange={handleEditInputChange} error={editErrors.phone} />
                                         <InputField id="address" name="address" label="Address" value={editData.address} onChange={handleEditInputChange} error={editErrors.address} />
-                                        <div className="flex items-center gap-4">
-                                            <label className="text-slate-400 text-sm">Status:</label>
-                                            <select
-                                                name="is_active"
-                                                value={editData.is_active ? "Active" : "Inactive"}
-                                                onChange={e => setEditData(prev => ({ ...prev, is_active: e.target.value === "Active" }))}
-                                                className="bg-slate-700 text-white px-3 py-2 rounded border border-slate-600"
-                                            >
-                                                <option value="Active">Active</option>
-                                                <option value="Inactive">Inactive</option>
-                                            </select>
-                                        </div>
                                         {editAlert.message && <Alert type={editAlert.type}>{editAlert.message}</Alert>}
                                         <div className="flex items-center justify-end space-x-2">
                                             <Button type="button" variant="secondary" onClick={closeDetailsModal} disabled={isEditSubmitting}>Cancel</Button>
@@ -257,7 +242,7 @@ function DealerManagerCustomersPage() {
                 <Modal isOpen={isModalOpen} onClose={closeModal} title="Add Customer">
                     <form onSubmit={handleSubmit}>
                         <div className="grid grid-cols-1 gap-4">
-                            <InputField id="full_name" name="full_name" label="Full Name" value={formData.full_name} onChange={handleInputChange} error={formErrors.full_name} />
+                            <InputField id="fullName" name="fullName" label="Full Name" value={formData.fullName} onChange={handleInputChange} error={formErrors.fullName} />
                             <InputField id="email" name="email" label="Email" value={formData.email} onChange={handleInputChange} error={formErrors.email} />
                             <InputField id="phone" name="phone" label="Phone" value={formData.phone} onChange={handleInputChange} error={formErrors.phone || phoneError} />
                             <InputField id="address" name="address" label="Address" value={formData.address} onChange={handleInputChange} error={formErrors.address} />

@@ -52,7 +52,7 @@ function DealerManagerVehiclesPage() {
     customerName: "",
     customerPhone: "",
     customerAddress: "",
-    customerRequest: "",
+    customerGmail: "",
     paymentType: "full",
     quantity: 1,
   });
@@ -65,7 +65,7 @@ function DealerManagerVehiclesPage() {
       customerName: "",
       customerPhone: "",
       customerAddress: "",
-      customerRequest: "",
+      customerGmail: "",
       paymentType: "full",
       quantity: 1,
     });
@@ -79,6 +79,20 @@ function DealerManagerVehiclesPage() {
   };
   const handleOrderInputChange = (e) => {
     const { name, value, type } = e.target;
+    // Autofill logic for phone number
+    if (name === "customerPhone") {
+      const matched = customers.find(c => c.phone.trim() === value.trim());
+      if (matched) {
+        setOrderForm(prev => ({
+          ...prev,
+          customerPhone: value,
+          customerName: matched.full_name || "",
+          customerAddress: matched.address || "",
+          customerGmail: matched.email || ""
+        }));
+        return;
+      }
+    }
     setOrderForm((prev) => ({
       ...prev,
       [name]: type === "number" ? Number(value) : value,
@@ -374,7 +388,7 @@ function DealerManagerVehiclesPage() {
       try {
         const data = await customerApi.getAll(user.id);
         setCustomers(Array.isArray(data) ? data : []);
-      } catch (err) {}
+      } catch (err) { }
     };
     fetchCustomers();
   }, [user?.id]);
@@ -387,7 +401,8 @@ function DealerManagerVehiclesPage() {
       if (
         !orderForm.customerName.trim() ||
         !orderForm.customerPhone.trim() ||
-        !orderForm.customerAddress.trim()
+        !orderForm.customerAddress.trim() ||
+        !orderForm.customerGmail.trim()
       ) {
         setOrderError("Please fill in all required customer information.");
         setOrderSubmitting(false);
@@ -395,11 +410,7 @@ function DealerManagerVehiclesPage() {
       }
       let customer = customers.find(
         (c) =>
-          c.full_name.trim().toLowerCase() ===
-            orderForm.customerName.trim().toLowerCase() &&
-          c.phone.trim() === orderForm.customerPhone.trim() &&
-          c.address.trim().toLowerCase() ===
-            orderForm.customerAddress.trim().toLowerCase()
+          c.phone.trim() === orderForm.customerPhone.trim()
       );
       let customer_id = customer ? customer.id : null;
       if (!customer_id) {
@@ -407,6 +418,7 @@ function DealerManagerVehiclesPage() {
           full_name: orderForm.customerName.trim(),
           phone: orderForm.customerPhone.trim(),
           address: orderForm.customerAddress.trim(),
+          email: orderForm.customerGmail.trim(),
           dealer_staff_id: user?.id,
           is_active: true,
         };
@@ -427,7 +439,7 @@ function DealerManagerVehiclesPage() {
         payment_type: orderForm.paymentType,
         order_status: "confirmed",
         quantity: qty,
-        customer_request: orderForm.customerRequest,
+        customer_gmail: orderForm.customerGmail,
       };
       const created = await orderApi.create(payload);
       setOrders((prev) => [created, ...prev]);
@@ -516,8 +528,8 @@ function DealerManagerVehiclesPage() {
       console.error("Error updating selling price:", error);
       setPriceError(
         error.response?.data?.messages?.[0] ||
-          error.message ||
-          "Failed to update selling price"
+        error.message ||
+        "Failed to update selling price"
       );
     } finally {
       setIsPriceSubmitting(false);
@@ -1005,11 +1017,10 @@ function DealerManagerVehiclesPage() {
                   value={formData.description}
                   onChange={handleInputChange}
                   rows={3}
-                  className={`w-full px-4 py-3 bg-slate-700 border ${
-                    formErrors.description
+                  className={`w-full px-4 py-3 bg-slate-700 border ${formErrors.description
                       ? "border-red-500"
                       : "border-slate-600"
-                  } rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition`}
+                    } rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition`}
                   placeholder="Enter vehicle description..."
                 />
                 {formErrors.description && (
@@ -1098,8 +1109,8 @@ function DealerManagerVehiclesPage() {
                   alt={orderVehicle.modelName}
                   className="w-32 h-24 object-cover rounded bg-slate-700 border border-slate-600"
                   onError={(e) =>
-                    (e.target.src =
-                      "https://via.placeholder.com/128x96?text=No+Image")
+                  (e.target.src =
+                    "https://via.placeholder.com/128x96?text=No+Image")
                   }
                 />
                 <div className="flex-1">
@@ -1193,12 +1204,13 @@ function DealerManagerVehiclesPage() {
                     required
                   />
                   <InputField
-                    id="customerRequest"
-                    name="customerRequest"
-                    label="Yêu cầu"
-                    value={orderForm.customerRequest}
+                    id="customerGmail"
+                    name="customerGmail"
+                    label="Gmail"
+                    value={orderForm.customerGmail}
                     onChange={handleOrderInputChange}
-                    placeholder="Yêu cầu thêm (nếu có)"
+                    placeholder="Nhập gmail khách hàng"
+                    required
                   />
                 </div>
               </div>
