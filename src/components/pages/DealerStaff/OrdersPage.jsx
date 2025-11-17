@@ -3,7 +3,7 @@ import { DashboardLayout } from "../../layout";
 import { Button, Modal, InputField, Alert, EmptyState, LoadingSpinner } from "../../common";
 import { useAuth } from "../../../hooks/useAuth";
 import { formatCurrency, formatDateTime } from "../../../utils/helpers";
-import { orderApi } from "../../../services/mockApi";
+import dealerOrdersApi from "../../../services/dealerOrdersApi";
 import { customerApi } from "../../../services/customerApi";
 import { vehicleApi } from "../../../services/vehicleApi";
 import OrdersDetail from './OrdersDetail';
@@ -48,7 +48,7 @@ function OrdersPage() {
             try {
                 setLoading(true);
                 const [ordersData, customersData, vehiclesResponse] = await Promise.all([
-                    orderApi.getAll(user?.dealer_id, user?.id),
+                    dealerOrdersApi.getAll(user?.dealer_id),
                     customerApi.getAll(),
                     vehicleApi.getAll(user?.id)
                 ]);
@@ -79,7 +79,6 @@ function OrdersPage() {
             // Fetch vehicles using the same API as VehiclesPage
             const response = await vehicleApi.getAll(user?.id);
             let vehicles = [];
-            // Support both real API (object with .data) and mock API (array)
             if (Array.isArray(response)) {
                 vehicles = response.filter(v => v.status === "Available");
             } else if (response && Array.isArray(response.data)) {
@@ -158,15 +157,25 @@ function OrdersPage() {
                 setCustomers(prev => [newCustomer, ...prev]);
             }
             const payload = {
-                customer_id,
-                dealer_staff_id: user?.id,
-                dealer_id: user?.dealer_id,
-                vehicle_id: formData.vehicle_id,
-                total_amount: price * qty,
-                payment_type: formData.payment_type,
-                order_status: "confirmed",
+                customerId: customer_id,
+                customerName: formData.customer_name,
+                customerPhone: formData.customer_phone,
+                dealerStaffId: user?.id,
+                dealerStaffName: user?.full_name || user?.name || "",
+                dealerId: user?.dealer_id,
+                dealerName: user?.dealer_name || "",
+                vehicleId: formData.vehicle_id,
+                vehicleModelName: vehicle?.modelName || vehicle?.model_name || "",
+                vehicleVersion: vehicle?.version || "",
+                inventoryId: vehicle?.inventoryId || vehicle?.inventory_id || "",
+                vinNumber: vehicle?.vinNumber || vehicle?.vin_number || "",
+                totalPrice: price * qty,
+                orderStatus: "confirmed",
+                paymentStatus: formData.payment_type === "full" ? "paid" : "partial_paid",
+                paymentType: formData.payment_type,
+                note: formData.note || null,
             };
-            const created = await orderApi.create(payload);
+            const created = await dealerOrdersApi.create(payload);
             setOrders((prev) => [created, ...prev]);
             // Refetch customers to ensure the latest list (including new customers)
             try {
@@ -250,18 +259,16 @@ function OrdersPage() {
                                 </thead>
                                 <tbody>
                                     {orders.map((o) => {
-                                        const customer = customers.find(c => c.id === o.customer_id);
-                                        const vehicle = availableVehicles.find(v => v.id === o.vehicle_id);
                                         return (
                                             <tr key={o.id} className="border-b border-slate-700">
                                                 <td className="px-4 py-2">{o.id}</td>
-                                                <td className="px-4 py-2">{formatDateTime(o.created_at)}</td>
-                                                <td className="px-4 py-2">{customer ? (customer.fullName || customer.full_name) : o.customer_id}</td>
-                                                <td className="px-4 py-2">{vehicle ? `${vehicle.modelName || vehicle.model_name} ${vehicle.version || ''}` : o.vehicle_id}</td>
+                                                <td className="px-4 py-2">{formatDateTime(o.createdAt || o.created_at)}</td>
+                                                <td className="px-4 py-2">{o.customerName || o.customerId}</td>
+                                                <td className="px-4 py-2">{o.vehicleModelName ? `${o.vehicleModelName} ${o.vehicleVersion || ''}` : o.vehicleId}</td>
                                                 <td className="px-4 py-2">
-                                                    <span className={`px-2 py-1 rounded text-xs font-semibold ${o.order_status === "confirmed" ? "bg-green-500 text-white" : "bg-slate-600"}`}>{o.order_status || o.status}</span>
+                                                    <span className={`px-2 py-1 rounded text-xs font-semibold ${o.orderStatus === "confirmed" ? "bg-green-500 text-white" : "bg-slate-600"}`}>{o.orderStatus || o.status}</span>
                                                 </td>
-                                                <td className="px-4 py-2 font-bold text-orange-400">{formatCurrency(o.total_amount || o.total_price || 0)}</td>
+                                                <td className="px-4 py-2 font-bold text-orange-400">{formatCurrency(o.totalPrice || o.total_amount || o.total_price || 0)}</td>
                                                 <td className="px-4 py-2 flex gap-2">
                                                     <Button variant="primary" size="sm" onClick={() => handleShowOrderDetail(o)} title="Details">
                                                         <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
