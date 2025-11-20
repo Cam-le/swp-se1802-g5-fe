@@ -15,7 +15,7 @@ import {
 } from "../../common";
 import { formatCurrency, formatShortDate } from "../../../utils/helpers";
 import { vehicleApi } from "../../../services/vehicleApi";
-import dealerOrdersApi from "../../../services/dealerOrdersApi";
+import { orderApi } from "../../../services/mockApi";
 import { customerApi } from "../../../services/customerApi";
 import { useAuth } from "../../../hooks/useAuth";
 import CarDetail from "./CarDetail";
@@ -60,11 +60,9 @@ function VehiclesPage() {
     customerGmail: "",
     paymentType: "full",
     quantity: 1,
-    customerRequest: "",
   });
   const [orderSubmitting, setOrderSubmitting] = useState(false);
   const [orderError, setOrderError] = useState("");
-  const [existingCustomer, setExistingCustomer] = useState(null);
 
   const openOrderModal = (vehicle) => {
     setOrderVehicle(vehicle);
@@ -75,67 +73,50 @@ function VehiclesPage() {
       customerGmail: "",
       paymentType: "full",
       quantity: 1,
-      customerRequest: "",
     });
     setOrderError("");
-    setExistingCustomer(null);
     setShowOrderModal(true);
   };
-
   const closeOrderModal = () => {
     setShowOrderModal(false);
     setOrderVehicle(null);
     setOrderError("");
-    setExistingCustomer(null);
   };
-
-  // Handle phone input change with customer lookup
-  const handleOrderPhoneChange = async (e) => {
-    const phone = e.target.value;
-    setOrderForm((prev) => ({ ...prev, customerPhone: phone }));
-
-    // Clear existing customer if phone is cleared
-    if (!phone) {
-      setExistingCustomer(null);
-      setOrderForm((prev) => ({
-        ...prev,
-        customerName: "",
-        customerGmail: "",
-        customerAddress: "",
-      }));
-      return;
-    }
-
-    // Lookup customer when phone is complete (at least 10 digits)
-    if (phone.length >= 10) {
-      try {
-        const customer = await customerApi.getByPhone(phone);
-        if (customer) {
-          setExistingCustomer(customer);
-          setOrderForm((prev) => ({
-            ...prev,
-            customerName: customer.fullName || "",
-            customerGmail: customer.email || "",
-            customerAddress: customer.address || "",
-          }));
-        } else {
-          setExistingCustomer(null);
-        }
-      } catch (error) {
-        console.error("Error fetching customer by phone:", error);
-        setExistingCustomer(null);
-      }
-    }
-  };
-
+  // Autofill customer info when phone changes
   const handleOrderInputChange = (e) => {
     const { name, value, type } = e.target;
+    // Debug: log customers and input
+    if (name === "customerPhone") {
+      console.log("Input phone:", value);
+      console.log("Customers:", customers);
+      const normalizedPhone = value.replace(/\D/g, "");
+      if (Array.isArray(customers) && customers.length > 0) {
+        for (const c of customers) {
+          if (c && typeof c.phone === "string") {
+            console.log("Checking customer:", c.phone, c.fullName);
+            if (c.phone.replace(/\D/g, "") === normalizedPhone) {
+              console.log("Match found:", c);
+              setOrderForm(prev => ({
+                ...prev,
+                customerPhone: value,
+                customerName: c.fullName || "",
+                customerAddress: c.address || "",
+                customerGmail: c.email || "",
+              }));
+              return;
+            }
+          }
+        }
+        console.log("No match found for:", normalizedPhone);
+      } else {
+        console.log("Customers array is empty or not loaded");
+      }
+    }
     setOrderForm((prev) => ({
       ...prev,
       [name]: type === "number" ? Number(value) : value,
     }));
   };
-
   // Car detail view state
   const [detailVehicle, setDetailVehicle] = useState(null);
   const { user } = useAuth();
@@ -147,7 +128,7 @@ function VehiclesPage() {
 
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalMode, setModalMode] = useState("create");
+  const [modalMode, setModalMode] = useState("create"); // 'create' or 'edit'
   const [editingVehicle, setEditingVehicle] = useState(null);
 
   // Form states
@@ -185,21 +166,20 @@ function VehiclesPage() {
     filterVehicles();
   }, [searchQuery, statusFilter, vehicles]);
 
-  const [customers, setCustomers] = useState([]);
-
-  // Fetch customers
+  // Fetch all customers from backend on mount and log them for debugging
   useEffect(() => {
     const fetchCustomers = async () => {
-      if (!user?.id) return;
       try {
         const data = await customerApi.getAll();
+        console.log("Raw customerApi.getAll() result:", data);
         setCustomers(Array.isArray(data) ? data : []);
+        console.log("Set customers:", Array.isArray(data) ? data : []);
       } catch (err) {
         console.error("Error fetching customers:", err);
       }
     };
     fetchCustomers();
-  }, [user?.id]);
+  }, []);
 
   const fetchVehicles = async () => {
     try {
@@ -228,6 +208,7 @@ function VehiclesPage() {
   const filterVehicles = () => {
     let filtered = [...vehicles];
 
+    // Search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
@@ -238,6 +219,7 @@ function VehiclesPage() {
       );
     }
 
+    // Status filter
     if (statusFilter) {
       filtered = filtered.filter((vehicle) => vehicle.status === statusFilter);
     }
@@ -309,6 +291,7 @@ function VehiclesPage() {
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+    // Clear error for this field
     if (formErrors[name]) {
       setFormErrors((prev) => ({ ...prev, [name]: "" }));
     }
@@ -367,6 +350,7 @@ function VehiclesPage() {
     setAlert({ type: "", message: "" });
 
     try {
+      // Prepare vehicle data (backend handles evmId, evmName, and status automatically)
       const vehicleData = {
         modelName: formData.modelName.trim(),
         version: formData.version.trim(),
@@ -383,6 +367,7 @@ function VehiclesPage() {
       if (modalMode === "create") {
         const response = await vehicleApi.create(vehicleData);
         if (response.isSuccess) {
+          // Refresh the vehicle list to get updated data including stock
           await fetchVehicles();
           setAlert({
             type: "success",
@@ -403,6 +388,7 @@ function VehiclesPage() {
           vehicleData
         );
         if (response.isSuccess) {
+          // Refresh the vehicle list to get updated data including stock
           await fetchVehicles();
           setAlert({
             type: "success",
@@ -433,11 +419,25 @@ function VehiclesPage() {
     }
   };
 
+  // Order creation logic (adapted from OrdersPage)
+  const [customers, setCustomers] = useState([]); // Add this state
+  const [orders, setOrders] = useState([]); // Add this state if you want to update orders list
+  useEffect(() => {
+    // Fetch customers for this staff
+    const fetchCustomers = async () => {
+      if (!user?.id) return;
+      try {
+        const data = await customerApi.getAll(user.id);
+        setCustomers(Array.isArray(data) ? data : []);
+      } catch (err) { }
+    };
+    fetchCustomers();
+  }, [user?.id]);
+
   const handleOrderSubmit = async (e) => {
     e.preventDefault();
     setOrderError("");
     setOrderSubmitting(true);
-
     try {
       // Validate required fields
       if (
@@ -449,44 +449,49 @@ function VehiclesPage() {
         setOrderSubmitting(false);
         return;
       }
-
-      // Calculate price and quantity
-      const qty = orderForm.quantity || 1;
-      const price = orderVehicle ? orderVehicle.basePrice || 0 : 0;
-
-      // Prepare payload matching backend API
-      const payload = {
-        dealerStaffId: user?.id,
-        dealerId: user?.dealer_id,
-        vehicleId: orderVehicle.id,
-        customerName: orderForm.customerName.trim(),
-        customerPhone: orderForm.customerPhone.trim(),
-        customerEmail: orderForm.customerGmail?.trim() || "",
-        customerAddress: orderForm.customerAddress.trim(),
-        paymentType: orderForm.paymentType,
-        totalPrice: price * qty,
-      };
-
-      await dealerOrdersApi.create(payload);
-
-      // Refetch customers
-      try {
-        const data = await customerApi.getAll();
-        setCustomers(Array.isArray(data) ? data : []);
-      } catch (err) {
-        console.error("Error refetching customers:", err);
+      // Find customer by name, phone, address
+      let customer = customers.find(
+        (c) => String(c.phone || c.Phone || c.phoneNumber).replace(/\D/g, "") === String(orderForm.customerPhone).replace(/\D/g, "")
+      );
+      let customer_id = customer ? customer.id : null;
+      // If not found, create new customer
+      if (!customer_id) {
+        const payload = {
+          fullName: orderForm.customerName.trim(),
+          phone: orderForm.customerPhone.trim(),
+          address: orderForm.customerAddress.trim(),
+          email: orderForm.customerGmail.trim(),
+          dealer_staff_id: user?.id,
+        };
+        const newCustomer = await customerApi.create(payload);
+        customer_id = newCustomer.id;
+        setCustomers((prev) => [newCustomer, ...prev]);
       }
-
+      // Prepare order payload
+      const qty = orderForm.quantity || 1;
+      const price = orderVehicle
+        ? orderVehicle.basePrice || orderVehicle.base_price || 0
+        : 0;
+      const payload = {
+        customer_id,
+        dealer_staff_id: user?.id,
+        dealer_id: user?.dealer_id,
+        vehicle_id: orderVehicle.id,
+        total_amount: price * qty,
+        payment_type: orderForm.paymentType,
+        order_status: "confirmed",
+        quantity: qty,
+        customer_request: orderForm.customerRequest,
+        customer_gmail: orderForm.customerGmail,
+      };
+      const created = await orderApi.create(payload);
+      setOrders((prev) => [created, ...prev]);
       setOrderError("");
       setOrderSubmitting(false);
       setShowOrderModal(false);
-      setShowFeedbackPrompt(true);
+      setShowFeedbackPrompt(true); // Show feedback prompt after purchase
     } catch (err) {
-      console.error("Error creating order:", err);
-      setOrderError(
-        err.response?.data?.message ||
-          "Failed to create order. Please try again."
-      );
+      setOrderError("Failed to create order. Please try again.");
       setOrderSubmitting(false);
     }
   };
@@ -498,14 +503,12 @@ function VehiclesPage() {
     setFeedbackText("");
     setShowThankYou(false);
   };
-
   const handleFeedbackYes = () => {
     setShowFeedbackPrompt(false);
     setShowFeedbackForm(true);
     setFeedbackText("");
     setShowThankYou(false);
   };
-
   const handleSendFeedback = (e) => {
     e.preventDefault();
     setShowFeedbackForm(false);
@@ -897,11 +900,10 @@ function VehiclesPage() {
                   value={formData.description}
                   onChange={handleInputChange}
                   rows={3}
-                  className={`w-full px-4 py-3 bg-slate-700 border ${
-                    formErrors.description
-                      ? "border-red-500"
-                      : "border-slate-600"
-                  } rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition`}
+                  className={`w-full px-4 py-3 bg-slate-700 border ${formErrors.description
+                    ? "border-red-500"
+                    : "border-slate-600"
+                    } rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition`}
                   placeholder="Enter vehicle description..."
                 />
                 {formErrors.description && (
@@ -995,8 +997,8 @@ function VehiclesPage() {
                   alt={orderVehicle.modelName}
                   className="w-32 h-24 object-cover rounded bg-slate-700 border border-slate-600"
                   onError={(e) =>
-                    (e.target.src =
-                      "https://via.placeholder.com/128x96?text=No+Image")
+                  (e.target.src =
+                    "https://via.placeholder.com/128x96?text=No+Image")
                   }
                 />
                 <div className="flex-1">
@@ -1028,7 +1030,6 @@ function VehiclesPage() {
                   />
                 </div>
               </div>
-
               {/* Payment Type */}
               <div>
                 <div className="font-semibold text-white mb-2">
@@ -1059,46 +1060,38 @@ function VehiclesPage() {
                   </label>
                 </div>
               </div>
-
               {/* Customer Info */}
               <div>
                 <div className="font-semibold text-white mb-2">
                   Nhập thông tin đơn hàng
                 </div>
-                {existingCustomer && (
-                  <div className="bg-green-500/20 border border-green-500 text-green-300 px-3 py-2 rounded mb-3 text-sm">
-                    Existing customer found
-                  </div>
-                )}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <InputField
-                    id="customerPhone"
-                    name="customerPhone"
-                    label="Số điện thoại *"
-                    value={orderForm.customerPhone}
-                    onChange={handleOrderPhoneChange}
-                    placeholder="Nhập số điện thoại"
-                    required
-                  />
                   <InputField
                     id="customerName"
                     name="customerName"
-                    label="Họ tên *"
+                    label="Họ tên"
                     value={orderForm.customerName}
                     onChange={handleOrderInputChange}
                     placeholder="Nhập họ tên khách hàng"
                     required
-                    disabled={!!existingCustomer}
+                  />
+                  <InputField
+                    id="customerPhone"
+                    name="customerPhone"
+                    label="Số điện thoại"
+                    value={orderForm.customerPhone}
+                    onChange={handleOrderInputChange}
+                    placeholder="Nhập số điện thoại"
+                    required
                   />
                   <InputField
                     id="customerAddress"
                     name="customerAddress"
-                    label="Địa chỉ *"
+                    label="Địa chỉ"
                     value={orderForm.customerAddress}
                     onChange={handleOrderInputChange}
                     placeholder="Nhập địa chỉ"
                     required
-                    disabled={!!existingCustomer}
                   />
                   <InputField
                     id="customerGmail"
@@ -1107,7 +1100,7 @@ function VehiclesPage() {
                     value={orderForm.customerGmail}
                     onChange={handleOrderInputChange}
                     placeholder="Nhập gmail"
-                    disabled={!!existingCustomer}
+                    required
                   />
                   <InputField
                     id="customerRequest"
@@ -1119,11 +1112,9 @@ function VehiclesPage() {
                   />
                 </div>
               </div>
-
               {orderError && (
                 <div className="text-red-400 text-sm">{orderError}</div>
               )}
-
               <div className="flex justify-end gap-3 pt-4 border-t border-slate-700">
                 <Button
                   variant="secondary"
@@ -1164,7 +1155,6 @@ function VehiclesPage() {
             </div>
           </div>
         </Modal>
-
         {/* Feedback Form Modal */}
         <Modal
           isOpen={showFeedbackForm}
@@ -1196,7 +1186,6 @@ function VehiclesPage() {
             </div>
           </form>
         </Modal>
-
         {/* Thank You Note Modal */}
         <Modal
           isOpen={showThankYou}
