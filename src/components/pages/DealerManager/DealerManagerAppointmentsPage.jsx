@@ -74,34 +74,43 @@ function DealerManagerAppointmentsPage() {
         }
         setIsSubmitting(true);
         try {
-            // Prepare payload for backend
+            // Prepare appointmentDate in correct format (add seconds if needed)
             let appointmentDate = formData.appointment_datetime;
             if (appointmentDate && appointmentDate.length === 16) {
                 appointmentDate += ':00';
             }
-            const payload = {
-                vehicleId: formData.vehicle_id,
-                dealerStaffId: user?.id,
-                dealerId: user?.dealer_id,
-                appointmentDate,
-                note: formData.note,
-                status: "Booked"
-            };
+
+            // Build payload strictly by backend requirements (NO dealerStaffId in body)
+            let payload;
             if (existingCustomer && existingCustomer.id) {
-                payload.customerId = existingCustomer.id;
-                payload.customerName = existingCustomer.fullName || existingCustomer.customerName || formData.customer_name;
-                payload.customerPhone = existingCustomer.phone || existingCustomer.customerPhone || formData.customer_phone;
-                payload.customerEmail = existingCustomer.email || existingCustomer.customerEmail || formData.customer_email;
-                payload.customerAddress = existingCustomer.address || existingCustomer.customerAddress || formData.customer_address;
+                payload = {
+                    customerId: existingCustomer.id,
+                    vehicleId: formData.vehicle_id,
+                    dealerId: user?.dealer_id,
+                    appointmentDate,
+                    note: formData.note
+                };
             } else {
-                payload.customerName = formData.customer_name;
-                payload.customerPhone = formData.customer_phone;
-                payload.customerEmail = formData.customer_email;
-                payload.customerAddress = formData.customer_address;
+                payload = {
+                    newCustomer: {
+                        fullName: formData.customer_name,
+                        phone: formData.customer_phone,
+                        email: formData.customer_email,
+                        address: formData.customer_address
+                    },
+                    vehicleId: formData.vehicle_id,
+                    dealerId: user?.dealer_id,
+                    appointmentDate,
+                    note: formData.note
+                };
             }
-            // Create appointment
-            console.log('Appointment payload:', payload);
-            const newAppointment = await appointmentsApi.create(payload);
+
+            // Log payload for debugging
+            console.log('Appointment payload:', JSON.stringify(payload, null, 2));
+
+            // Send to backend and use returned appointment for UI
+            // dealerStaffId should be sent as a query param, not in the body
+            const newAppointment = await appointmentsApi.create(payload, user?.id);
             setAppointments((prev) => [newAppointment, ...prev]);
             setAlert({ type: 'success', message: 'Appointment added successfully' });
             setTimeout(() => closeModal(), 800);
