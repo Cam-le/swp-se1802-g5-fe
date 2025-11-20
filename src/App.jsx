@@ -42,7 +42,6 @@ import EVMStaffVehiclesPage from "./components/pages/EVMStaff/EVMStaffVehiclesPa
 // Admin Pages
 import AdminDashboard from "./components/pages/Admin/DashboardPage";
 import UserManagementPage from "./components/pages/Admin/UserManagementPage";
-import RoleManagementPage from "./components/pages/Admin/RoleManagementPage";
 import SystemSettingsPage from "./components/pages/Admin/SystemSettingsPage";
 import SystemReportsPage from "./components/pages/Admin/SystemReportsPage";
 import AdminDealersPage from "./components/pages/Admin/AdminDealersPage";
@@ -387,14 +386,6 @@ function App() {
               element={
                 <ProtectedRoute allowedRoles={[ROLES.ADMIN.id]}>
                   <UserManagementPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path={ROUTES.ADMIN.ROLES}
-              element={
-                <ProtectedRoute allowedRoles={[ROLES.ADMIN.id]}>
-                  <RoleManagementPage />
                 </ProtectedRoute>
               }
             />

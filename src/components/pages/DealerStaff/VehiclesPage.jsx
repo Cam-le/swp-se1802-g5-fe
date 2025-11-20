@@ -18,15 +18,6 @@ import { vehicleApi } from "../../../services/vehicleApi";
 import dealerOrdersApi from "../../../services/dealerOrdersApi";
 import { customerApi } from "../../../services/customerApi";
 import { useAuth } from "../../../hooks/useAuth";
-import CarDetail from "./CarDetail";
-
-// Category options
-const CATEGORY_OPTIONS = [
-  { value: "SUV điện", label: "SUV điện" },
-  { value: "SUV điện 7 chỗ", label: "SUV điện 7 chỗ" },
-  { value: "Sedan điện", label: "Sedan điện" },
-  { value: "Hatchback điện", label: "Hatchback điện" },
-];
 
 // Status badge variant mapping
 const getStatusVariant = (status) => {
@@ -144,27 +135,6 @@ function VehiclesPage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-
-  // Modal states
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalMode, setModalMode] = useState("create");
-  const [editingVehicle, setEditingVehicle] = useState(null);
-
-  // Form states
-  const [formData, setFormData] = useState({
-    modelName: "",
-    version: "",
-    category: "",
-    color: "",
-    imageUrl: "",
-    description: "",
-    batteryCapacity: "",
-    rangePerCharge: "",
-    basePrice: "",
-    launchDate: "",
-  });
-  const [formErrors, setFormErrors] = useState({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [alert, setAlert] = useState({ type: "", message: "" });
 
   // Feedback modal state
@@ -243,194 +213,6 @@ function VehiclesPage() {
     }
 
     setFilteredVehicles(filtered);
-  };
-
-  const openCreateModal = () => {
-    setModalMode("create");
-    setEditingVehicle(null);
-    setFormData({
-      modelName: "",
-      version: "",
-      category: "",
-      color: "",
-      imageUrl: "",
-      description: "",
-      batteryCapacity: "",
-      rangePerCharge: "",
-      basePrice: "",
-      launchDate: "",
-    });
-    setFormErrors({});
-    setAlert({ type: "", message: "" });
-    setIsModalOpen(true);
-  };
-
-  const openEditModal = (vehicle) => {
-    setModalMode("edit");
-    setEditingVehicle(vehicle);
-    setFormData({
-      modelName: vehicle.modelName,
-      version: vehicle.version,
-      category: vehicle.category,
-      color: vehicle.color,
-      imageUrl: vehicle.imageUrl,
-      description: vehicle.description,
-      batteryCapacity: vehicle.batteryCapacity.toString(),
-      rangePerCharge: vehicle.rangePerCharge.toString(),
-      basePrice: vehicle.basePrice.toString(),
-      launchDate: vehicle.launchDate
-        ? new Date(vehicle.launchDate).toISOString().split("T")[0]
-        : "",
-    });
-    setFormErrors({});
-    setAlert({ type: "", message: "" });
-    setIsModalOpen(true);
-  };
-
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setEditingVehicle(null);
-    setFormData({
-      modelName: "",
-      version: "",
-      category: "",
-      color: "",
-      imageUrl: "",
-      description: "",
-      batteryCapacity: "",
-      rangePerCharge: "",
-      basePrice: "",
-      launchDate: "",
-    });
-    setFormErrors({});
-    setAlert({ type: "", message: "" });
-  };
-
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-    if (formErrors[name]) {
-      setFormErrors((prev) => ({ ...prev, [name]: "" }));
-    }
-  };
-
-  const validateForm = () => {
-    const errors = {};
-
-    if (!formData.modelName.trim()) errors.modelName = "Model name is required";
-    if (!formData.version.trim()) errors.version = "Version is required";
-    if (!formData.category) errors.category = "Category is required";
-    if (!formData.color.trim()) errors.color = "Color is required";
-    if (!formData.imageUrl.trim()) errors.imageUrl = "Image URL is required";
-    if (!formData.description.trim())
-      errors.description = "Description is required";
-
-    if (!formData.batteryCapacity) {
-      errors.batteryCapacity = "Battery capacity is required";
-    } else if (
-      isNaN(formData.batteryCapacity) ||
-      Number(formData.batteryCapacity) <= 0
-    ) {
-      errors.batteryCapacity = "Battery capacity must be a positive number";
-    }
-
-    if (!formData.rangePerCharge) {
-      errors.rangePerCharge = "Range per charge is required";
-    } else if (
-      isNaN(formData.rangePerCharge) ||
-      Number(formData.rangePerCharge) <= 0
-    ) {
-      errors.rangePerCharge = "Range per charge must be a positive number";
-    }
-
-    if (!formData.basePrice) {
-      errors.basePrice = "Base price is required";
-    } else if (isNaN(formData.basePrice) || Number(formData.basePrice) <= 0) {
-      errors.basePrice = "Base price must be a positive number";
-    }
-
-    if (!formData.launchDate) errors.launchDate = "Launch date is required";
-
-    setFormErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    if (!validateForm()) {
-      setAlert({ type: "error", message: "Please fix the errors below" });
-      return;
-    }
-
-    setIsSubmitting(true);
-    setAlert({ type: "", message: "" });
-
-    try {
-      const vehicleData = {
-        modelName: formData.modelName.trim(),
-        version: formData.version.trim(),
-        category: formData.category,
-        color: formData.color.trim(),
-        imageUrl: formData.imageUrl.trim(),
-        description: formData.description.trim(),
-        batteryCapacity: Number(formData.batteryCapacity),
-        rangePerCharge: Number(formData.rangePerCharge),
-        basePrice: Number(formData.basePrice),
-        launchDate: new Date(formData.launchDate).toISOString(),
-      };
-
-      if (modalMode === "create") {
-        const response = await vehicleApi.create(vehicleData);
-        if (response.isSuccess) {
-          await fetchVehicles();
-          setAlert({
-            type: "success",
-            message: response.messages?.[0] || "Vehicle created successfully!",
-          });
-          setTimeout(() => {
-            closeModal();
-          }, 1500);
-        } else {
-          setAlert({
-            type: "error",
-            message: response.messages?.[0] || "Failed to create vehicle",
-          });
-        }
-      } else {
-        const response = await vehicleApi.update(
-          editingVehicle.id,
-          vehicleData
-        );
-        if (response.isSuccess) {
-          await fetchVehicles();
-          setAlert({
-            type: "success",
-            message: response.messages?.[0] || "Vehicle updated successfully!",
-          });
-          setTimeout(() => {
-            closeModal();
-          }, 1500);
-        } else {
-          setAlert({
-            type: "error",
-            message: response.messages?.[0] || "Failed to update vehicle",
-          });
-        }
-      }
-    } catch (error) {
-      console.error("Error submitting vehicle:", error);
-      const errorMessage =
-        error.response?.data?.messages?.[0] ||
-        error.message ||
-        `Failed to ${modalMode} vehicle. Please try again.`;
-      setAlert({
-        type: "error",
-        message: errorMessage,
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
   };
 
   const handleOrderSubmit = async (e) => {
@@ -518,29 +300,11 @@ function VehiclesPage() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-white">
-              Vehicle Management
-            </h1>
+            <h1 className="text-3xl font-bold text-white">Vehicle Catalog</h1>
             <p className="text-slate-400 mt-1">
-              Manage vehicle models, specifications, and catalog
+              Browse available vehicles and create orders
             </p>
           </div>
-          <Button onClick={openCreateModal}>
-            <svg
-              className="w-5 h-5 mr-2"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 4v16m8-8H4"
-              />
-            </svg>
-            Add Vehicle
-          </Button>
         </div>
 
         {/* Filters */}
@@ -568,7 +332,10 @@ function VehiclesPage() {
           </div>
         </Card>
 
-        {/* Vehicle Table */}
+        {/* Alert */}
+        <Alert type={alert.type} message={alert.message} />
+
+        {/* Vehicle Catalog */}
         <Card padding={false}>
           <div>
             {loading ? (
@@ -666,10 +433,8 @@ function VehiclesPage() {
                 description={
                   searchQuery || statusFilter
                     ? "Try adjusting your search or filters"
-                    : "Get started by adding your first vehicle"
+                    : "No vehicles available at the moment"
                 }
-                action={openCreateModal}
-                actionLabel="Add Vehicle"
                 icon={
                   <svg
                     className="w-16 h-16 text-slate-600"
@@ -810,174 +575,6 @@ function VehiclesPage() {
             )}
           </div>
         </Card>
-
-        {/* Create/Edit Modal */}
-        <Modal
-          isOpen={isModalOpen}
-          onClose={closeModal}
-          title={modalMode === "create" ? "Add New Vehicle" : "Edit Vehicle"}
-          size="lg"
-        >
-          <form onSubmit={handleSubmit}>
-            <Alert type={alert.type} message={alert.message} />
-
-            <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
-              {/* Model Name & Version */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <InputField
-                  id="modelName"
-                  name="modelName"
-                  label="Model Name"
-                  value={formData.modelName}
-                  onChange={handleInputChange}
-                  error={formErrors.modelName}
-                  placeholder="e.g., VinFast VF 8"
-                  required
-                />
-                <InputField
-                  id="version"
-                  name="version"
-                  label="Version"
-                  value={formData.version}
-                  onChange={handleInputChange}
-                  error={formErrors.version}
-                  placeholder="e.g., Plus, Eco"
-                  required
-                />
-              </div>
-
-              {/* Category & Color */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Select
-                  id="category"
-                  name="category"
-                  label="Category"
-                  value={formData.category}
-                  onChange={handleInputChange}
-                  options={CATEGORY_OPTIONS}
-                  error={formErrors.category}
-                  placeholder="Select category"
-                  required
-                />
-                <InputField
-                  id="color"
-                  name="color"
-                  label="Color"
-                  value={formData.color}
-                  onChange={handleInputChange}
-                  error={formErrors.color}
-                  placeholder="e.g., Trắng Ngọc Trai"
-                  required
-                />
-              </div>
-
-              {/* Image URL */}
-              <InputField
-                id="imageUrl"
-                name="imageUrl"
-                label="Image URL"
-                value={formData.imageUrl}
-                onChange={handleInputChange}
-                error={formErrors.imageUrl}
-                placeholder="https://example.com/vehicle-image.jpg"
-                required
-              />
-
-              {/* Description */}
-              <div>
-                <label
-                  htmlFor="description"
-                  className="block text-sm font-medium text-slate-300 mb-2"
-                >
-                  Description <span className="text-red-400">*</span>
-                </label>
-                <textarea
-                  id="description"
-                  name="description"
-                  value={formData.description}
-                  onChange={handleInputChange}
-                  rows={3}
-                  className={`w-full px-4 py-3 bg-slate-700 border ${
-                    formErrors.description
-                      ? "border-red-500"
-                      : "border-slate-600"
-                  } rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition`}
-                  placeholder="Enter vehicle description..."
-                />
-                {formErrors.description && (
-                  <p className="mt-1 text-sm text-red-400">
-                    {formErrors.description}
-                  </p>
-                )}
-              </div>
-
-              {/* Battery Capacity & Range */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <InputField
-                  id="batteryCapacity"
-                  name="batteryCapacity"
-                  type="number"
-                  label="Battery Capacity (kWh)"
-                  value={formData.batteryCapacity}
-                  onChange={handleInputChange}
-                  error={formErrors.batteryCapacity}
-                  placeholder="e.g., 90"
-                  required
-                />
-                <InputField
-                  id="rangePerCharge"
-                  name="rangePerCharge"
-                  type="number"
-                  label="Range Per Charge (km)"
-                  value={formData.rangePerCharge}
-                  onChange={handleInputChange}
-                  error={formErrors.rangePerCharge}
-                  placeholder="e.g., 470"
-                  required
-                />
-              </div>
-
-              {/* Base Price */}
-              <InputField
-                id="basePrice"
-                name="basePrice"
-                type="number"
-                label="Base Price (VND)"
-                value={formData.basePrice}
-                onChange={handleInputChange}
-                error={formErrors.basePrice}
-                placeholder="e.g., 1250000000"
-                required
-              />
-
-              {/* Launch Date */}
-              <InputField
-                id="launchDate"
-                name="launchDate"
-                type="date"
-                label="Launch Date"
-                value={formData.launchDate}
-                onChange={handleInputChange}
-                error={formErrors.launchDate}
-                required
-              />
-            </div>
-
-            <Modal.Footer>
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={closeModal}
-                disabled={isSubmitting}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" isLoading={isSubmitting}>
-                {modalMode === "create" ? "Create Vehicle" : "Update Vehicle"}
-              </Button>
-            </Modal.Footer>
-          </form>
-        </Modal>
 
         {/* Order Modal */}
         <Modal

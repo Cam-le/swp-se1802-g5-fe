@@ -45,7 +45,6 @@ export const EVM_STAFF_ROUTES = {
 export const ADMIN_ROUTES = {
   DASHBOARD: "/admin/dashboard",
   USERS: "/admin/users",
-  ROLES: "/admin/roles",
   DEALERS: "/admin/dealers",
   SETTINGS: "/admin/settings",
   REPORTS: "/admin/reports",
