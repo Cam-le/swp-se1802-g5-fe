@@ -3,11 +3,11 @@ import { DashboardLayout } from "../../layout";
 import { Card, Modal, InputField, Select, Alert } from "../../common";
 import VehicleSelectRich from "../../common/VehicleSelectRich";
 import { useAuth } from "../../../hooks/useAuth";
-import { MOCK_USERS } from "../../../data/mockData";
+// import { MOCK_USERS } from "../../../data/mockData";
 import { formatDateTime } from "../../../utils/helpers";
 import { customerApi } from "../../../services/customerApi";
 import { vehicleApi } from "../../../services/vehicleApi";
-import { appointmentApi } from '../../../services/mockApi';
+import { appointmentsApi } from '../../../services/appointmentsApi';
 import EmptyState from "../../common/EmptyState";
 import LoadingSpinner from "../../common/LoadingSpinner"; // Import the loading spinner component
 
@@ -63,14 +63,24 @@ function AppointmentsPage() {
     // Details modal state
     const [isDetailsOpen, setIsDetailsOpen] = useState(false);
     const [selectedAppointment, setSelectedAppointment] = useState(null);
-    // Find staff by id
-    const getStaff = (id) => MOCK_USERS.find(u => u.id === id);
+    // Find staff by id (fallback to id only)
+    const getStaff = (id) => ({ full_name: id });
     const { user } = useAuth();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [customers, setCustomers] = useState([]);
     const [vehicles, setVehicles] = useState([]);
     const [appointments, setAppointments] = useState([]);
-    const [formData, setFormData] = useState({ customer_id: '', vehicle_id: '', appointment_datetime: '', note: '' });
+    const [formData, setFormData] = useState({
+        customer_phone: '',
+        customer_name: '',
+        customer_email: '',
+        customer_address: '',
+        vehicle_id: '',
+        appointment_datetime: '',
+        note: ''
+    });
+    const [existingCustomer, setExistingCustomer] = useState(null);
+    const [phoneError, setPhoneError] = useState("");
     const [formErrors, setFormErrors] = useState({});
     const [alert, setAlert] = useState({ type: '', message: '' });
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -86,12 +96,31 @@ function AppointmentsPage() {
                 const [custs, vehs, appts] = await Promise.all([
                     customerApi.getAll(),
                     vehicleApi.getAll(user?.id),
-                    appointmentApi.getAll(user?.id)
+                    appointmentsApi.getAll()
                 ]);
                 setCustomers(Array.isArray(custs) ? custs : []);
                 let vList = Array.isArray(vehs) ? vehs : (vehs?.data || []);
                 setVehicles(vList.filter(v => v.status === 'Available' && (v.currentStock || v.stock || 0) > 0));
-                setAppointments(Array.isArray(appts) ? appts : []);
+                // Map backend fields to frontend format
+                const mappedAppointments = Array.isArray(appts)
+                    ? appts.map(a => ({
+                        id: a.id,
+                        customer_id: a.customerId || a.customer_id,
+                        customer_name: a.customerName || a.customer_name,
+                        vehicle_id: a.vehicleId || a.vehicle_id,
+                        vehicle_model_name: a.vehicleModelName || a.vehicle_model_name,
+                        vehicle_version: a.vehicleVersion || a.vehicle_version,
+                        appointment_datetime: a.appointmentDate || a.appointment_datetime,
+                        status: a.status,
+                        note: a.note,
+                        created_at: a.createdAt || a.created_at,
+                        dealer_staff_id: a.dealerStaffId || a.dealer_staff_id,
+                        dealer_staff_name: a.dealerStaffName || a.dealer_staff_name,
+                        dealer_id: a.dealerId || a.dealer_id,
+                        dealer_name: a.dealerName || a.dealer_name,
+                    }))
+                    : [];
+                setAppointments(mappedAppointments);
             } catch (err) {
                 setAlert({ type: 'error', message: 'Failed to load customers, vehicles, or appointments' });
             } finally {
@@ -102,9 +131,11 @@ function AppointmentsPage() {
     }, [isModalOpen, user?.id]);
 
     const openModal = () => {
-        setFormData({ customer_id: '', vehicle_id: '', appointment_datetime: '', note: '' });
+        setFormData({ customer_phone: '', customer_name: '', vehicle_id: '', appointment_datetime: '', note: '' });
         setFormErrors({});
         setAlert({ type: '', message: '' });
+        setExistingCustomer(null);
+        setPhoneError("");
         setIsModalOpen(true);
     };
     const closeModal = () => {
@@ -118,11 +149,56 @@ function AppointmentsPage() {
         if (formErrors[name]) setFormErrors((prev) => ({ ...prev, [name]: '' }));
     };
 
+    // Phone lookup logic
+    const handlePhoneChange = async (e) => {
+        const phone = e.target.value;
+        setFormData((prev) => ({ ...prev, customer_phone: phone }));
+        if (/[a-zA-Z]/.test(phone)) {
+            setPhoneError("Letter is not allowed");
+            setExistingCustomer(null);
+            return;
+        } else {
+            setPhoneError("");
+        }
+        if (!phone) {
+            setExistingCustomer(null);
+            setFormData((prev) => ({ ...prev, customer_name: "", customer_email: "", customer_address: "" }));
+            return;
+        }
+        if (phone.length >= 10) {
+            try {
+                const customer = await customerApi.getByPhone(phone);
+                if (customer) {
+                    setExistingCustomer(customer);
+                    setFormData((prev) => ({
+                        ...prev,
+                        customer_name: customer.fullName || customer.customerName || "",
+                        customer_email: customer.email || customer.customerEmail || "",
+                        customer_address: customer.address || customer.customerAddress || ""
+                    }));
+                } else {
+                    setExistingCustomer(null);
+                }
+            } catch (error) {
+                setExistingCustomer(null);
+            }
+        }
+    };
+
     const validateForm = () => {
         const errors = {};
-        if (!formData.customer_id) errors.customer_id = 'Customer is required';
+        if (!formData.customer_phone) errors.customer_phone = 'Phone is required';
+        if (!formData.customer_name) errors.customer_name = 'Customer name is required';
+        if (!formData.customer_email) errors.customer_email = 'Email is required';
+        if (!formData.customer_address) errors.customer_address = 'Address is required';
         if (!formData.vehicle_id) errors.vehicle_id = 'Vehicle is required';
         if (!formData.appointment_datetime) errors.appointment_datetime = 'Date & Time is required';
+        // Date validation
+        const now = new Date();
+        const selected = new Date(formData.appointment_datetime);
+        if (selected < now) errors.appointment_datetime = 'Date cannot be in the past';
+        const maxDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+        if (selected > maxDate) errors.appointment_datetime = 'Date cannot be more than 7 days ahead';
         setFormErrors(errors);
         return Object.keys(errors).length === 0;
     };
@@ -135,19 +211,45 @@ function AppointmentsPage() {
         }
         setIsSubmitting(true);
         try {
-            const newAppointment = await appointmentApi.create({
-                customer_id: formData.customer_id,
-                vehicle_id: formData.vehicle_id,
-                dealer_staff_id: user?.id,
-                appointment_datetime: formData.appointment_datetime,
-                note: formData.note,
-                status: "Pending",
-            });
+            // Prepare payload for backend
+            // Format appointmentDate to full ISO string with seconds
+            let appointmentDate = formData.appointment_datetime;
+            if (appointmentDate && appointmentDate.length === 16) {
+                appointmentDate += ':00';
+            }
+            const payload = {
+                newCustomer: {
+                    fullName: formData.customer_name,
+                    phone: formData.customer_phone,
+                    email: formData.customer_email,
+                    address: formData.customer_address
+                },
+                vehicleId: formData.vehicle_id,
+                dealerId: user?.dealer_id,
+                appointmentDate,
+                note: formData.note
+            };
+            // If new customer, optionally create customer first (not implemented here)
+            // Create appointment
+            console.log('Appointment payload:', payload);
+            const newAppointment = await appointmentsApi.create(payload);
             setAppointments((prev) => [newAppointment, ...prev]);
             setAlert({ type: 'success', message: 'Appointment added successfully' });
             setTimeout(() => closeModal(), 800);
         } catch (err) {
-            setAlert({ type: 'error', message: 'Failed to add appointment' });
+            let errorMsg = 'Failed to add appointment';
+            if (err.response && err.response.data) {
+                if (typeof err.response.data === 'string') {
+                    errorMsg += ': ' + err.response.data;
+                } else if (err.response.data.message) {
+                    errorMsg += ': ' + err.response.data.message;
+                } else if (err.response.data.error) {
+                    errorMsg += ': ' + err.response.data.error;
+                } else {
+                    errorMsg += ': ' + JSON.stringify(err.response.data);
+                }
+            }
+            setAlert({ type: 'error', message: errorMsg });
         } finally {
             setIsSubmitting(false);
         }
@@ -238,12 +340,13 @@ function AppointmentsPage() {
                                         return a.status === filterStatus;
                                     })
                                     .filter(a => {
-                                        // Search by customer or vehicle name
+                                        // Search by customer name, appointment customer_name, or vehicle name
                                         const customer = customers.find(c => c.id === a.customer_id);
                                         const vehicle = vehicles.find(v => v.id === a.vehicle_id);
                                         const searchLower = search.toLowerCase();
                                         return (
                                             (customer?.full_name?.toLowerCase().includes(searchLower) || "") ||
+                                            (a.customer_name?.toLowerCase().includes(searchLower) || "") ||
                                             (vehicle?.model_name?.toLowerCase().includes(searchLower) || "") ||
                                             (vehicle?.modelName?.toLowerCase().includes(searchLower) || "")
                                         );
@@ -373,15 +476,44 @@ function AppointmentsPage() {
                     <form onSubmit={handleSubmit}>
                         {alert.message && <Alert type={alert.type} message={alert.message} />}
                         <div className="grid grid-cols-1 gap-4">
-                            <Select
-                                id="customer_id"
-                                name="customer_id"
-                                label="Customer"
-                                value={formData.customer_id}
+                            <InputField
+                                id="customer_phone"
+                                name="customer_phone"
+                                label="Customer Phone"
+                                value={formData.customer_phone}
+                                onChange={handlePhoneChange}
+                                error={formErrors.customer_phone || phoneError}
+                                placeholder="Enter phone number"
+                            />
+                            <InputField
+                                id="customer_name"
+                                name="customer_name"
+                                label="Customer Name"
+                                value={formData.customer_name}
                                 onChange={handleInputChange}
-                                options={customers.map((c) => ({ value: c.id, label: c.fullName || c.full_name }))}
-                                error={formErrors.customer_id}
-                                placeholder="Select customer"
+                                error={formErrors.customer_name}
+                                placeholder="Enter customer name"
+                                disabled={!!existingCustomer}
+                            />
+                            <InputField
+                                id="customer_email"
+                                name="customer_email"
+                                label="Customer Email"
+                                value={formData.customer_email}
+                                onChange={handleInputChange}
+                                error={formErrors.customer_email}
+                                placeholder="Enter customer email"
+                                disabled={!!existingCustomer}
+                            />
+                            <InputField
+                                id="customer_address"
+                                name="customer_address"
+                                label="Customer Address"
+                                value={formData.customer_address}
+                                onChange={handleInputChange}
+                                error={formErrors.customer_address}
+                                placeholder="Enter customer address"
+                                disabled={!!existingCustomer}
                             />
                             <VehicleSelectRich
                                 id="vehicle_id"
@@ -407,6 +539,11 @@ function AppointmentsPage() {
                                 value={formData.appointment_datetime}
                                 onChange={handleInputChange}
                                 error={formErrors.appointment_datetime}
+                                min={new Date().toISOString().slice(0, 16)}
+                                max={(() => {
+                                    const maxDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+                                    return maxDate.toISOString().slice(0, 16);
+                                })()}
                             />
                             <InputField
                                 id="note"
