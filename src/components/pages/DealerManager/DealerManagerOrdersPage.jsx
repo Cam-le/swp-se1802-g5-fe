@@ -3,28 +3,13 @@ import { DashboardLayout } from "../../layout";
 import { Button, Modal, InputField, Select, LoadingSpinner, Alert, EmptyState } from "../../common";
 import { useAuth } from "../../../hooks/useAuth";
 import { formatCurrency, formatDateTime } from "../../../utils/helpers";
-import { orderApi, customerApi } from "../../../services/mockApi";
+import dealerOrdersApi from "../../../services/dealerOrdersApi";
+import { customerApi } from "../../../services/customerApi";
 import { vehicleApi } from "../../../services/vehicleApi";
 import OrdersDetail from './OrdersDetail';
 
 
 function DealerManagerOrdersPage() {
-    // Notification for incomplete fields
-    const [showIncompleteAlert, setShowIncompleteAlert] = useState(false);
-
-    // Helper to check if any required field is blank
-    const isAnyRequiredFieldBlank = () => {
-        return !formData.customer_name || !formData.customer_phone || !formData.customer_address;
-    };
-
-    // Handler for blur event
-    const handleBlur = () => {
-        if (isAnyRequiredFieldBlank()) {
-            setShowIncompleteAlert(true);
-        } else {
-            setShowIncompleteAlert(false);
-        }
-    };
     const { user } = useAuth();
 
     const [orders, setOrders] = useState([]);
@@ -35,11 +20,21 @@ function DealerManagerOrdersPage() {
     const [customers, setCustomers] = useState([]);
     const [availableVehicles, setAvailableVehicles] = useState([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [formData, setFormData] = useState({ customer_id: "", vehicle_id: "", payment_type: "full" });
+    const [formData, setFormData] = useState({
+        customer_phone: "",
+        customer_name: "",
+        customer_email: "",
+        customer_address: "",
+        vehicle_id: "",
+        quantity: 1,
+        payment_type: "full",
+        note: "",
+    });
     const [phoneError, setPhoneError] = useState("");
     const [alert, setAlert] = useState({ type: "", message: "" });
     const [showOrderDetail, setShowOrderDetail] = useState(false);
     const [selectedOrder, setSelectedOrder] = useState(null);
+    const [existingCustomer, setExistingCustomer] = useState(null);
 
     useEffect(() => {
         // Fetch orders, customers, and vehicles for display
@@ -47,22 +42,25 @@ function DealerManagerOrdersPage() {
             try {
                 setLoading(true);
                 const [ordersData, customersData, vehiclesResponse] = await Promise.all([
-                    orderApi.getAll(user?.dealer_id, user?.id),
+                    dealerOrdersApi.getAll(user?.dealer_id),
                     customerApi.getAll(),
-                    vehicleApi.getAll(user?.id)
+                    vehicleApi.getAll(user?.id),
                 ]);
                 setOrders(Array.isArray(ordersData) ? ordersData : []);
                 setCustomers(Array.isArray(customersData) ? customersData : []);
                 let vehicles = [];
                 if (Array.isArray(vehiclesResponse)) {
-                    vehicles = vehiclesResponse.filter(v => v.status === "Available");
+                    vehicles = vehiclesResponse.filter((v) => v.status === "Available");
                 } else if (vehiclesResponse && Array.isArray(vehiclesResponse.data)) {
-                    vehicles = vehiclesResponse.data.filter(v => v.status === "Available");
+                    vehicles = vehiclesResponse.data.filter((v) => v.status === "Available");
                 }
                 setAvailableVehicles(vehicles);
             } catch (err) {
                 console.error("Error fetching orders/customers/vehicles:", err);
-                setAlert({ type: "error", message: "Failed to load orders or related data" });
+                setAlert({
+                    type: "error",
+                    message: "Failed to load orders or related data",
+                });
             } finally {
                 setLoading(false);
             }
@@ -78,14 +76,23 @@ function DealerManagerOrdersPage() {
             // Fetch vehicles using the same API as VehiclesPage
             const response = await vehicleApi.getAll(user?.id);
             let vehicles = [];
-            // Support both real API (object with .data) and mock API (array)
             if (Array.isArray(response)) {
-                vehicles = response.filter(v => v.status === "Available");
+                vehicles = response.filter((v) => v.status === "Available");
             } else if (response && Array.isArray(response.data)) {
-                vehicles = response.data.filter(v => v.status === "Available");
+                vehicles = response.data.filter((v) => v.status === "Available");
             }
             setAvailableVehicles(vehicles);
-            setFormData({ customer_id: custs?.[0]?.id || "", vehicle_id: vehicles?.[0]?.id || "", payment_type: "full" });
+            setFormData({
+                customer_phone: "",
+                customer_name: "",
+                customer_email: "",
+                customer_address: "",
+                vehicle_id: vehicles?.[0]?.id || "",
+                quantity: 1,
+                payment_type: "full",
+                note: "",
+            });
+            setExistingCustomer(null);
             setAlert({ type: "", message: "" });
             setIsModalOpen(true);
         } catch (err) {
@@ -97,6 +104,7 @@ function DealerManagerOrdersPage() {
     const closeModal = () => {
         setIsModalOpen(false);
         setIsSubmitting(false);
+        setExistingCustomer(null);
     };
 
     const handleInputChange = (e) => {
@@ -108,93 +116,137 @@ function DealerManagerOrdersPage() {
                 setPhoneError("");
             }
         }
-        // If changing customer_name, check for existing customer and autofill
-        if (name === "customer_name") {
-            const matched = customers.find(c => c.full_name.toLowerCase() === value.toLowerCase());
-            if (matched) {
-                setFormData((prev) => ({
-                    ...prev,
-                    customer_name: value,
-                    customer_phone: matched.phone,
-                    customer_address: matched.address
-                }));
-                return;
+        setFormData((prev) => ({ ...prev, [name]: value }));
+    };
+
+    // Handle phone number change and lookup customer
+    const handlePhoneChange = async (e) => {
+        const phone = e.target.value;
+
+        // Validate phone
+        if (/[a-zA-Z]/.test(phone)) {
+            setPhoneError("Letter is not allowed");
+        } else {
+            setPhoneError("");
+        }
+
+        setFormData((prev) => ({ ...prev, customer_phone: phone }));
+
+        // Clear existing customer if phone is cleared
+        if (!phone) {
+            setExistingCustomer(null);
+            setFormData((prev) => ({
+                ...prev,
+                customer_name: "",
+                customer_email: "",
+                customer_address: "",
+            }));
+            return;
+        }
+
+        // Lookup customer when phone is complete (at least 10 digits)
+        if (phone.length >= 10) {
+            try {
+                const customer = await customerApi.getByPhone(phone);
+                if (customer) {
+                    setExistingCustomer(customer);
+                    setFormData((prev) => ({
+                        ...prev,
+                        customer_name: customer.fullName || "",
+                        customer_email: customer.email || "",
+                        customer_address: customer.address || "",
+                    }));
+                } else {
+                    setExistingCustomer(null);
+                }
+            } catch (error) {
+                console.error("Error fetching customer by phone:", error);
+                setExistingCustomer(null);
             }
         }
-        setFormData((prev) => ({ ...prev, [name]: value }));
     };
 
     const handleCreateOrder = async (e) => {
         e.preventDefault();
-        if (!formData.customer_name || !formData.customer_phone || !formData.customer_address || !formData.vehicle_id) {
-            setAlert({ type: "error", message: "Please fill in all required fields." });
+
+        // Validate required fields
+        if (
+            !formData.customer_phone ||
+            !formData.customer_name ||
+            !formData.customer_address ||
+            !formData.vehicle_id
+        ) {
+            setAlert({
+                type: "error",
+                message: "Please fill in all required fields.",
+            });
             return;
         }
+
+        if (phoneError) {
+            setAlert({ type: "error", message: "Please fix phone number error." });
+            return;
+        }
+
         try {
             setIsSubmitting(true);
+
             // Find selected vehicle price
-            const vehicle = availableVehicles.find((v) => v.id === formData.vehicle_id);
-            const qty = formData.quantity || 1;
-            const price = vehicle ? (vehicle.basePrice || vehicle.base_price || 0) : 0;
-            // Check if customer exists by name, phone, and address
-            let customer = customers.find(c =>
-                c.full_name.trim().toLowerCase() === formData.customer_name.trim().toLowerCase() &&
-                c.phone.trim() === formData.customer_phone.trim() &&
-                c.address.trim().toLowerCase() === formData.customer_address.trim().toLowerCase()
+            const vehicle = availableVehicles.find(
+                (v) => v.id === formData.vehicle_id
             );
-            let customer_id = customer ? customer.id : null;
-            // If not found, create new customer
-            if (!customer_id) {
-                const newCustomer = await customerApi.create({
-                    full_name: formData.customer_name.trim(),
-                    phone: formData.customer_phone.trim(),
-                    address: formData.customer_address.trim(),
-                    email: formData.customer_email || "", // Add email if available
-                    dealer_staff_id: user?.id,
-                });
-                customer_id = newCustomer.id;
-                // Add to customers list immediately
-                setCustomers(prev => [newCustomer, ...prev]);
-            }
+            const qty = formData.quantity || 1;
+            const price = vehicle ? vehicle.basePrice || vehicle.base_price || 0 : 0;
+
+            // Prepare payload matching backend API
             const payload = {
-                customer_id,
-                dealer_staff_id: user?.id,
-                dealer_id: user?.dealer_id,
-                vehicle_id: formData.vehicle_id,
-                total_amount: price * qty,
-                payment_type: formData.payment_type,
-                order_status: "confirmed",
+                dealerStaffId: user?.id,
+                dealerId: user?.dealer_id,
+                vehicleId: formData.vehicle_id,
+                customerName: formData.customer_name.trim(),
+                customerPhone: formData.customer_phone.trim(),
+                customerEmail: formData.customer_email?.trim() || "",
+                customerAddress: formData.customer_address.trim(),
+                paymentType: formData.payment_type,
+                totalPrice: price * qty,
             };
-            const created = await orderApi.create(payload);
+
+            const created = await dealerOrdersApi.create(payload);
             setOrders((prev) => [created, ...prev]);
-            // Refetch customers to ensure the latest list (including new customers)
+
+            // Refetch customers to ensure the latest list
             try {
                 const customersData = await customerApi.getAll(user?.id);
                 setCustomers(Array.isArray(customersData) ? customersData : []);
             } catch (err) {
-                // Optionally handle error
+                console.error("Error refetching customers:", err);
             }
+
             setAlert({ type: "success", message: "Order created successfully" });
             setTimeout(() => closeModal(), 800);
         } catch (err) {
             console.error("Error creating order:", err);
-            setAlert({ type: "error", message: "Failed to create order" });
+            setAlert({
+                type: "error",
+                message: err.response?.data?.message || "Failed to create order",
+            });
         } finally {
             setIsSubmitting(false);
         }
     };
 
     // Helper to get available stock for selected vehicle
-    const selectedVehicle = availableVehicles.find(v => v.id === formData.vehicle_id);
+    const selectedVehicle = availableVehicles.find(
+        (v) => v.id === formData.vehicle_id
+    );
     const selectedQty = formData.quantity || 1;
-    // Check all possible stock fields for compatibility
-    const stockCount = selectedVehicle ? (
-        selectedVehicle.stock ??
+    const stockCount = selectedVehicle
+        ? selectedVehicle.stock ??
         selectedVehicle.available ??
         selectedVehicle.inStock ??
         selectedVehicle.currentStock ??
         0
-    ) : 0;
+        : 0;
     const notEnoughStock = selectedVehicle && selectedQty > stockCount;
 
     const handleShowOrderDetail = (order) => {
@@ -240,30 +292,28 @@ function DealerManagerOrdersPage() {
                             </tr>
                         </thead>
                         <tbody>
-                            {orders.map((o) => {
-                                const customer = customers.find(c => c.id === o.customer_id);
-                                const vehicle = availableVehicles.find(v => v.id === o.vehicle_id);
-                                return (
-                                    <tr key={o.id} className="border-b border-slate-700">
-                                        <td className="px-4 py-2">{o.id}</td>
-                                        <td className="px-4 py-2">{formatDateTime(o.created_at)}</td>
-                                        <td className="px-4 py-2">{customer ? (customer.fullName || customer.full_name) : o.customer_id}</td>
-                                        <td className="px-4 py-2">{vehicle ? `${vehicle.modelName || vehicle.model_name} ${vehicle.version || ''}` : o.vehicle_id}</td>
-                                        <td className="px-4 py-2">
-                                            <span className={`px-2 py-1 rounded text-xs font-semibold ${o.order_status === "confirmed" ? "bg-green-500 text-white" : "bg-slate-600"}`}>{o.order_status || o.status}</span>
-                                        </td>
-                                        <td className="px-4 py-2 font-bold text-orange-400">{formatCurrency(o.total_amount || o.total_price || 0)}</td>
-                                        <td className="px-4 py-2 flex gap-2">
-                                            <Button variant="primary" size="sm" onClick={() => handleShowOrderDetail(o)} title="Details">
-                                                <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                                </svg>
-                                            </Button>
-                                        </td>
-                                    </tr>
-                                );
-                            })}
+                            {orders.map((o) => (
+                                <tr key={o.id} className="border-b border-slate-700">
+                                    <td className="px-4 py-2">{o.id}</td>
+                                    <td className="px-4 py-2">{formatDateTime(o.createdAt || o.created_at)}</td>
+                                    <td className="px-4 py-2">{o.customerName || o.customer_name || o.customerId || o.customer_id || "-"}</td>
+                                    <td className="px-4 py-2">{o.vehicleModelName ? `${o.vehicleModelName} ${o.vehicleVersion || ""}` : (o.vehicleName || o.vehicle_name || o.vehicleId || o.vehicle_id || "-")}</td>
+                                    <td className="px-4 py-2">
+                                        <span className={`px-2 py-1 rounded text-xs font-semibold ${o.orderStatus === "confirmed" || o.status === "confirmed" ? "bg-green-500 text-white" : "bg-slate-600"}`}>
+                                            {o.orderStatus || o.order_status || o.status || "-"}
+                                        </span>
+                                    </td>
+                                    <td className="px-4 py-2 font-bold text-orange-400">{formatCurrency(o.totalPrice || o.total_amount || o.total_price || 0)}</td>
+                                    <td className="px-4 py-2 flex gap-2">
+                                        <Button variant="primary" size="sm" onClick={() => handleShowOrderDetail(o)} title="Details">
+                                            <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                            </svg>
+                                        </Button>
+                                    </td>
+                                </tr>
+                            ))}
                         </tbody>
                     </table>
                 </div>
@@ -376,10 +426,10 @@ function DealerManagerOrdersPage() {
                         <div>
                             <div className="font-semibold mb-2">Order Information</div>
                             <div className="grid grid-cols-1 gap-3">
-                                <InputField id="customer_name" name="customer_name" label="Full Name" value={formData.customer_name || ''} onChange={handleInputChange} onBlur={handleBlur} required autoComplete="off" />
-                                <InputField id="customer_phone" name="customer_phone" label="Phone Number" value={formData.customer_phone || ''} onChange={handleInputChange} onBlur={handleBlur} required autoComplete="off" error={phoneError} />
-                                <InputField id="customer_address" name="customer_address" label="Address" value={formData.customer_address || ''} onChange={handleInputChange} onBlur={handleBlur} required autoComplete="off" />
-                                <InputField id="note" name="note" label="Request" value={formData.note || ''} onChange={handleInputChange} onBlur={handleBlur} autoComplete="off" />
+                                <InputField id="customer_name" name="customer_name" label="Full Name" value={formData.customer_name || ''} onChange={handleInputChange} required autoComplete="off" />
+                                <InputField id="customer_phone" name="customer_phone" label="Phone Number" value={formData.customer_phone || ''} onChange={handleInputChange} required autoComplete="off" error={phoneError} />
+                                <InputField id="customer_address" name="customer_address" label="Address" value={formData.customer_address || ''} onChange={handleInputChange} required autoComplete="off" />
+                                <InputField id="note" name="note" label="Request" value={formData.note || ''} onChange={handleInputChange} autoComplete="off" />
                             </div>
                         </div>
 
@@ -387,9 +437,7 @@ function DealerManagerOrdersPage() {
                             <div className="text-red-400 text-sm font-semibold mt-2">There are not enough vehicles for this order to proceed</div>
                         )}
                         <div className="mt-4 flex items-center justify-end space-x-2">
-                            {showIncompleteAlert && (
-                                <div className="text-yellow-400 text-sm font-semibold mb-2">Please fill in all required fields before submitting the order.</div>
-                            )}
+                            {/* ...existing code... */}
                             <Button type="button" variant="secondary" onClick={closeModal} disabled={isSubmitting}>Cancel</Button>
                             <Button type="submit" disabled={isSubmitting || notEnoughStock} className={notEnoughStock ? 'opacity-50 cursor-not-allowed' : ''}>{isSubmitting ? 'Placing...' : 'Place Order'}</Button>
                         </div>
