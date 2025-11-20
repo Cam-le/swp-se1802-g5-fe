@@ -15,7 +15,7 @@ import {
 } from "../../common";
 import { formatCurrency, formatShortDate } from "../../../utils/helpers";
 import { vehicleApi } from "../../../services/vehicleApi";
-import { orderApi } from "../../../services/mockApi";
+import dealerOrdersApi from "../../../services/dealerOrdersApi";
 import { customerApi } from "../../../services/customerApi";
 import promotionApi from "../../../services/promotionApi";
 import { useAuth } from "../../../hooks/useAuth";
@@ -60,6 +60,7 @@ function DealerManagerVehiclesPage() {
   });
   const [orderSubmitting, setOrderSubmitting] = useState(false);
   const [orderError, setOrderError] = useState("");
+  const [existingCustomer, setExistingCustomer] = useState(null);
 
   // Promotion modal states
   const [showPromoModal, setShowPromoModal] = useState(false);
@@ -81,29 +82,58 @@ function DealerManagerVehiclesPage() {
       quantity: 1,
     });
     setOrderError("");
+    setExistingCustomer(null);
     setShowOrderModal(true);
   };
+
   const closeOrderModal = () => {
     setShowOrderModal(false);
     setOrderVehicle(null);
     setOrderError("");
+    setExistingCustomer(null);
   };
-  const handleOrderInputChange = (e) => {
-    const { name, value, type } = e.target;
-    // Autofill logic for phone number
-    if (name === "customerPhone") {
-      const matched = customers.find((c) => c.phone.trim() === value.trim());
-      if (matched) {
-        setOrderForm((prev) => ({
-          ...prev,
-          customerPhone: value,
-          customerName: matched.full_name || "",
-          customerAddress: matched.address || "",
-          customerGmail: matched.email || "",
-        }));
-        return;
+
+  // Handle phone input change with customer lookup
+  const handleOrderPhoneChange = async (e) => {
+    const phone = e.target.value;
+    setOrderForm((prev) => ({ ...prev, customerPhone: phone }));
+
+    // Clear existing customer if phone is cleared
+    if (!phone) {
+      setExistingCustomer(null);
+      setOrderForm((prev) => ({
+        ...prev,
+        customerName: "",
+        customerGmail: "",
+        customerAddress: "",
+      }));
+      return;
+    }
+
+    // Lookup customer when phone is complete (at least 10 digits)
+    if (phone.length >= 10) {
+      try {
+        const customer = await customerApi.getByPhone(phone);
+        if (customer) {
+          setExistingCustomer(customer);
+          setOrderForm((prev) => ({
+            ...prev,
+            customerName: customer.fullName || "",
+            customerGmail: customer.email || "",
+            customerAddress: customer.address || "",
+          }));
+        } else {
+          setExistingCustomer(null);
+        }
+      } catch (error) {
+        console.error("Error fetching customer by phone:", error);
+        setExistingCustomer(null);
       }
     }
+  };
+
+  const handleOrderInputChange = (e) => {
+    const { name, value, type } = e.target;
     setOrderForm((prev) => ({
       ...prev,
       [name]: type === "number" ? Number(value) : value,
@@ -456,8 +486,35 @@ function DealerManagerVehiclesPage() {
         quantity: qty,
         customer_gmail: orderForm.customerGmail,
       };
-      const created = await orderApi.create(payload);
+      const created = await dealerOrdersApi.create({
+        dealerStaffId: user?.id,
+        dealerId: user?.dealer_id,
+        vehicleId: orderVehicle.id,
+        customerName: orderForm.customerName.trim(),
+        customerPhone: orderForm.customerPhone.trim(),
+        customerEmail: orderForm.customerGmail?.trim() || "",
+        customerAddress: orderForm.customerAddress.trim(),
+        paymentType: orderForm.paymentType,
+        totalPrice: price * qty,
+      });
       setOrders((prev) => [created, ...prev]);
+
+      // Decrease stock of the selected vehicle locally
+      setVehicles((prevVehicles) =>
+        prevVehicles.map((v) =>
+          v.id === orderVehicle.id
+            ? { ...v, currentStock: Math.max((v.currentStock || 0) - qty, 0) }
+            : v
+        )
+      );
+
+      // Optionally, refetch vehicles from API for latest stock
+      try {
+        await fetchVehicles();
+      } catch (err) {
+        // fallback: keep local update
+      }
+
       setOrderError("");
       setOrderSubmitting(false);
       setShowOrderModal(false);
@@ -543,8 +600,8 @@ function DealerManagerVehiclesPage() {
       console.error("Error updating selling price:", error);
       setPriceError(
         error.response?.data?.messages?.[0] ||
-          error.message ||
-          "Failed to update selling price"
+        error.message ||
+        "Failed to update selling price"
       );
     } finally {
       setIsPriceSubmitting(false);
@@ -614,8 +671,8 @@ function DealerManagerVehiclesPage() {
       console.error("Error applying promotion:", error);
       setPromoError(
         error.response?.data?.messages?.[0] ||
-          error.message ||
-          "Failed to apply promotion"
+        error.message ||
+        "Failed to apply promotion"
       );
     } finally {
       setApplyingPromo(false);
@@ -1116,11 +1173,10 @@ function DealerManagerVehiclesPage() {
                   value={formData.description}
                   onChange={handleInputChange}
                   rows={3}
-                  className={`w-full px-4 py-3 bg-slate-700 border ${
-                    formErrors.description
+                  className={`w-full px-4 py-3 bg-slate-700 border ${formErrors.description
                       ? "border-red-500"
                       : "border-slate-600"
-                  } rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition`}
+                    } rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition`}
                   placeholder="Enter vehicle description..."
                 />
                 {formErrors.description && (
@@ -1203,14 +1259,15 @@ function DealerManagerVehiclesPage() {
         >
           {orderVehicle && (
             <form className="space-y-6" onSubmit={handleOrderSubmit}>
+              {/* Vehicle Info */}
               <div className="flex flex-col md:flex-row gap-6 items-center border-b border-slate-700 pb-4 mb-4">
                 <img
                   src={orderVehicle.imageUrl}
                   alt={orderVehicle.modelName}
                   className="w-32 h-24 object-cover rounded bg-slate-700 border border-slate-600"
                   onError={(e) =>
-                    (e.target.src =
-                      "https://via.placeholder.com/128x96?text=No+Image")
+                  (e.target.src =
+                    "https://via.placeholder.com/128x96?text=No+Image")
                   }
                 />
                 <div className="flex-1">
@@ -1224,84 +1281,64 @@ function DealerManagerVehiclesPage() {
                     {orderVehicle.category}
                   </div>
                   <div className="text-slate-400 text-sm mt-1">
-                    Đơn giá:{" "}
-                    <span className="font-semibold text-white">
-                      {formatCurrency(orderVehicle.basePrice)}
-                    </span>
+                    Đơn giá: <span className="font-semibold text-white">{formatCurrency(orderVehicle.basePrice)}</span>
                   </div>
                 </div>
                 <div className="text-slate-400 text-sm">
-                  Số lượng:{" "}
-                  <input
-                    type="number"
-                    min="1"
-                    name="quantity"
-                    value={orderForm.quantity}
-                    onChange={handleOrderInputChange}
-                    className="w-16 px-2 py-1 rounded bg-slate-700 text-white border border-slate-600"
-                  />
+                  Số lượng: <input type="number" min="1" name="quantity" value={orderForm.quantity} onChange={handleOrderInputChange} className="w-16 px-2 py-1 rounded bg-slate-700 text-white border border-slate-600" />
                 </div>
               </div>
+
+              {/* Payment Type */}
               <div>
-                <div className="font-semibold text-white mb-2">
-                  Chọn phương thức thanh toán
-                </div>
+                <div className="font-semibold text-white mb-2">Chọn phương thức thanh toán</div>
                 <div className="flex flex-col gap-2">
                   <label className="flex items-center gap-2 text-slate-300">
-                    <input
-                      type="radio"
-                      name="paymentType"
-                      value="full"
-                      checked={orderForm.paymentType === "full"}
-                      onChange={handleOrderInputChange}
-                      className="accent-blue-500"
-                    />
+                    <input type="radio" name="paymentType" value="full" checked={orderForm.paymentType === "full"} onChange={handleOrderInputChange} className="accent-blue-500" />
                     Thanh toán toàn bộ
                   </label>
                   <label className="flex items-center gap-2 text-slate-300">
-                    <input
-                      type="radio"
-                      name="paymentType"
-                      value="installment"
-                      checked={orderForm.paymentType === "installment"}
-                      onChange={handleOrderInputChange}
-                      className="accent-blue-500"
-                    />
+                    <input type="radio" name="paymentType" value="installment" checked={orderForm.paymentType === "installment"} onChange={handleOrderInputChange} className="accent-blue-500" />
                     Trả góp/Installment
                   </label>
                 </div>
               </div>
+
+              {/* Customer Info */}
               <div>
-                <div className="font-semibold text-white mb-2">
-                  Nhập thông tin đơn hàng
-                </div>
+                <div className="font-semibold text-white mb-2">Nhập thông tin đơn hàng</div>
+                {existingCustomer && (
+                  <div className="bg-green-500/20 border border-green-500 text-green-300 px-3 py-2 rounded mb-3 text-sm">Existing customer found</div>
+                )}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <InputField
-                    id="customerName"
-                    name="customerName"
-                    label="Họ tên"
-                    value={orderForm.customerName}
-                    onChange={handleOrderInputChange}
-                    placeholder="Nhập họ tên khách hàng"
-                    required
-                  />
                   <InputField
                     id="customerPhone"
                     name="customerPhone"
-                    label="Số điện thoại"
+                    label="Số điện thoại *"
                     value={orderForm.customerPhone}
-                    onChange={handleOrderInputChange}
+                    onChange={handleOrderPhoneChange}
                     placeholder="Nhập số điện thoại"
                     required
                   />
                   <InputField
+                    id="customerName"
+                    name="customerName"
+                    label="Họ tên *"
+                    value={orderForm.customerName}
+                    onChange={handleOrderInputChange}
+                    placeholder="Nhập họ tên khách hàng"
+                    required
+                    disabled={!!existingCustomer}
+                  />
+                  <InputField
                     id="customerAddress"
                     name="customerAddress"
-                    label="Địa chỉ"
+                    label="Địa chỉ *"
                     value={orderForm.customerAddress}
                     onChange={handleOrderInputChange}
                     placeholder="Nhập địa chỉ"
                     required
+                    disabled={!!existingCustomer}
                   />
                   <InputField
                     id="customerGmail"
@@ -1309,29 +1346,19 @@ function DealerManagerVehiclesPage() {
                     label="Gmail"
                     value={orderForm.customerGmail}
                     onChange={handleOrderInputChange}
-                    placeholder="Nhập gmail khách hàng"
-                    required
+                    placeholder="Nhập gmail"
+                    disabled={!!existingCustomer}
                   />
                 </div>
               </div>
+
               {orderError && (
                 <div className="text-red-400 text-sm">{orderError}</div>
               )}
+
               <div className="flex justify-end gap-3 pt-4 border-t border-slate-700">
-                <Button
-                  variant="secondary"
-                  type="button"
-                  onClick={closeOrderModal}
-                >
-                  Hủy
-                </Button>
-                <Button
-                  variant="primary"
-                  type="submit"
-                  isLoading={orderSubmitting}
-                >
-                  Purchase
-                </Button>
+                <Button variant="secondary" type="button" onClick={closeOrderModal}>Hủy</Button>
+                <Button variant="primary" type="submit" isLoading={orderSubmitting}>Purchase</Button>
               </div>
             </form>
           )}
@@ -1387,11 +1414,10 @@ function DealerManagerVehiclesPage() {
                     {availablePromotions.map((promo) => (
                       <label
                         key={promo.id}
-                        className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                          selectedPromotionId === promo.id
+                        className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${selectedPromotionId === promo.id
                             ? "border-blue-500 bg-blue-500/10"
                             : "border-slate-700 hover:border-slate-600"
-                        }`}
+                          }`}
                       >
                         <input
                           type="radio"
@@ -1613,6 +1639,6 @@ function DealerManagerVehiclesPage() {
       )}
     </DashboardLayout>
   );
-}
 
+}
 export default DealerManagerVehiclesPage;
