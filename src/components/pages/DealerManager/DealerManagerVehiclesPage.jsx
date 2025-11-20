@@ -17,6 +17,7 @@ import { formatCurrency, formatShortDate } from "../../../utils/helpers";
 import { vehicleApi } from "../../../services/vehicleApi";
 import dealerOrdersApi from "../../../services/dealerOrdersApi";
 import { customerApi } from "../../../services/customerApi";
+import promotionApi from "../../../services/promotionApi";
 import { useAuth } from "../../../hooks/useAuth";
 import CarDetail from "../DealerStaff/CarDetail";
 
@@ -60,6 +61,15 @@ function DealerManagerVehiclesPage() {
   const [orderSubmitting, setOrderSubmitting] = useState(false);
   const [orderError, setOrderError] = useState("");
   const [existingCustomer, setExistingCustomer] = useState(null);
+
+  // Promotion modal states
+  const [showPromoModal, setShowPromoModal] = useState(false);
+  const [promoVehicle, setPromoVehicle] = useState(null);
+  const [availablePromotions, setAvailablePromotions] = useState([]);
+  const [promotionsLoading, setPromotionsLoading] = useState(false);
+  const [selectedPromotionId, setSelectedPromotionId] = useState("");
+  const [promoError, setPromoError] = useState("");
+  const [applyingPromo, setApplyingPromo] = useState(false);
 
   const openOrderModal = (vehicle) => {
     setOrderVehicle(vehicle);
@@ -443,7 +453,9 @@ function DealerManagerVehiclesPage() {
       }
       // Find customer by name, phone, address
       let customer = customers.find(
-        (c) => String(c.phone || c.Phone || c.phoneNumber).replace(/\D/g, "") === String(orderForm.customerPhone).replace(/\D/g, "")
+        (c) =>
+          String(c.phone || c.Phone || c.phoneNumber).replace(/\D/g, "") ===
+          String(orderForm.customerPhone).replace(/\D/g, "")
       );
       let customer_id = customer ? customer.id : null;
       // If not found, create new customer
@@ -594,6 +606,83 @@ function DealerManagerVehiclesPage() {
     } finally {
       setIsPriceSubmitting(false);
     }
+  };
+
+  // Promotion handlers
+  const openPromoModal = async (vehicle) => {
+    setPromoVehicle(vehicle);
+    setSelectedPromotionId("");
+    setPromoError("");
+    setShowPromoModal(true);
+
+    // Fetch available promotions
+    setPromotionsLoading(true);
+    try {
+      const response = await promotionApi.getAll();
+      if (response.isSuccess) {
+        // Filter only active promotions
+        const activePromotions = response.data.filter((p) => p.isActive);
+        setAvailablePromotions(activePromotions);
+      } else {
+        setPromoError(response.messages?.[0] || "Failed to load promotions");
+      }
+    } catch (error) {
+      console.error("Error fetching promotions:", error);
+      setPromoError("Failed to load promotions");
+    } finally {
+      setPromotionsLoading(false);
+    }
+  };
+
+  const closePromoModal = () => {
+    setShowPromoModal(false);
+    setPromoVehicle(null);
+    setSelectedPromotionId("");
+    setPromoError("");
+    setAvailablePromotions([]);
+  };
+
+  const handleApplyPromotion = async () => {
+    if (!selectedPromotionId) {
+      setPromoError("Please select a promotion");
+      return;
+    }
+
+    setApplyingPromo(true);
+    setPromoError("");
+
+    try {
+      const response = await promotionApi.applyToVehicle(
+        selectedPromotionId,
+        promoVehicle.id
+      );
+
+      if (response.isSuccess) {
+        setAlert({
+          type: "success",
+          message: response.messages?.[0] || "Promotion applied successfully!",
+        });
+        await fetchVehicles();
+        closePromoModal();
+      } else {
+        setPromoError(response.messages?.[0] || "Failed to apply promotion");
+      }
+    } catch (error) {
+      console.error("Error applying promotion:", error);
+      setPromoError(
+        error.response?.data?.messages?.[0] ||
+        error.message ||
+        "Failed to apply promotion"
+      );
+    } finally {
+      setApplyingPromo(false);
+    }
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return "-";
+    const date = new Date(dateString);
+    return date.toLocaleDateString("vi-VN");
   };
 
   return (
@@ -955,14 +1044,21 @@ function DealerManagerVehiclesPage() {
                       <div className="flex gap-2 mt-auto">
                         <Button
                           variant="secondary"
-                          className="w-full"
+                          className="flex-1"
                           onClick={() => setDetailVehicle(vehicle)}
                         >
                           Detail
                         </Button>
                         <Button
                           variant="primary"
-                          className="w-full !bg-blue-500 hover:!bg-blue-600 text-white font-semibold rounded transition-colors duration-150"
+                          className="flex-1 !bg-green-500 hover:!bg-green-600"
+                          onClick={() => openPromoModal(vehicle)}
+                        >
+                          Apply Promo
+                        </Button>
+                        <Button
+                          variant="primary"
+                          className="flex-1 !bg-blue-500 hover:!bg-blue-600"
                           onClick={() => openOrderModal(vehicle)}
                         >
                           Buy
@@ -1078,8 +1174,8 @@ function DealerManagerVehiclesPage() {
                   onChange={handleInputChange}
                   rows={3}
                   className={`w-full px-4 py-3 bg-slate-700 border ${formErrors.description
-                    ? "border-red-500"
-                    : "border-slate-600"
+                      ? "border-red-500"
+                      : "border-slate-600"
                     } rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition`}
                   placeholder="Enter vehicle description..."
                 />
@@ -1268,6 +1364,121 @@ function DealerManagerVehiclesPage() {
           )}
         </Modal>
 
+        {/* Apply Promotion Modal */}
+        <Modal
+          isOpen={showPromoModal}
+          onClose={closePromoModal}
+          title="Apply Promotion"
+          size="md"
+        >
+          {promoVehicle && (
+            <div className="space-y-4">
+              {/* Vehicle Info */}
+              <div className="bg-slate-900 rounded-lg p-4 mb-4">
+                <div className="flex items-center gap-4">
+                  <img
+                    src={promoVehicle.imageUrl}
+                    alt={promoVehicle.modelName}
+                    className="w-20 h-16 object-cover rounded bg-slate-700"
+                    onError={(e) => {
+                      e.target.src =
+                        "https://via.placeholder.com/80x64?text=No+Image";
+                    }}
+                  />
+                  <div>
+                    <div className="font-bold text-white">
+                      {promoVehicle.modelName} - {promoVehicle.version}
+                    </div>
+                    <div className="text-sm text-slate-400">
+                      Final Price: {formatCurrency(promoVehicle.finalPrice)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Promotions List */}
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Select Promotion
+                </label>
+                {promotionsLoading ? (
+                  <div className="text-slate-400 text-sm py-4 text-center">
+                    Loading promotions...
+                  </div>
+                ) : availablePromotions.length === 0 ? (
+                  <div className="text-slate-400 text-sm py-4 text-center">
+                    No active promotions available
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {availablePromotions.map((promo) => (
+                      <label
+                        key={promo.id}
+                        className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${selectedPromotionId === promo.id
+                            ? "border-blue-500 bg-blue-500/10"
+                            : "border-slate-700 hover:border-slate-600"
+                          }`}
+                      >
+                        <input
+                          type="radio"
+                          name="promotion"
+                          value={promo.id}
+                          checked={selectedPromotionId === promo.id}
+                          onChange={(e) =>
+                            setSelectedPromotionId(e.target.value)
+                          }
+                          className="mt-1 accent-blue-500"
+                        />
+                        <div className="flex-1">
+                          <div className="font-semibold text-white">
+                            {promo.name}
+                          </div>
+                          <div className="text-xs text-slate-400 mt-1">
+                            {promo.description}
+                          </div>
+                          <div className="flex items-center gap-3 mt-2">
+                            <span className="text-xs bg-blue-500 text-white px-2 py-0.5 rounded">
+                              {promo.discountPercent}% OFF
+                            </span>
+                            <span className="text-xs text-slate-400">
+                              {formatDate(promo.startDate)} -{" "}
+                              {formatDate(promo.endDate)}
+                            </span>
+                          </div>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {promoError && (
+                <div className="text-red-400 text-sm">{promoError}</div>
+              )}
+
+              <Modal.Footer>
+                <Button
+                  variant="secondary"
+                  onClick={closePromoModal}
+                  disabled={applyingPromo}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  onClick={handleApplyPromotion}
+                  isLoading={applyingPromo}
+                  disabled={
+                    !selectedPromotionId || availablePromotions.length === 0
+                  }
+                >
+                  Apply Promotion
+                </Button>
+              </Modal.Footer>
+            </div>
+          )}
+        </Modal>
+
         <Modal
           isOpen={showFeedbackPrompt}
           onClose={handleFeedbackNo}
@@ -1428,6 +1639,6 @@ function DealerManagerVehiclesPage() {
       )}
     </DashboardLayout>
   );
-}
 
+}
 export default DealerManagerVehiclesPage;
