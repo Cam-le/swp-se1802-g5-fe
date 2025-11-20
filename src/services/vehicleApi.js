@@ -37,59 +37,37 @@ export const vehicleApi = {
   },
 
   /**
-   * Create new vehicle
-   * @param {Object} vehicleData - Vehicle data (without evmId and status - backend handles these)
+   * Create new vehicle with FormData (supports file upload)
+   * @param {FormData} formData - FormData object with vehicle data and image file
    * @returns {Promise} Response with created vehicle
    */
-  create: async (vehicleData) => {
+  createWithFormData: async (formData) => {
     try {
-      // Prepare request body - exclude evmId and status as backend handles them
-      const requestBody = {
-        modelName: vehicleData.modelName,
-        version: vehicleData.version,
-        category: vehicleData.category,
-        color: vehicleData.color,
-        imageUrl: vehicleData.imageUrl,
-        description: vehicleData.description,
-        batteryCapacity: vehicleData.batteryCapacity,
-        rangePerCharge: vehicleData.rangePerCharge,
-        basePrice: vehicleData.basePrice,
-        finalPrice: vehicleData.finalPrice,
-        launchDate: vehicleData.launchDate,
-      };
-
-      const response = await apiClient.post("/api/Vehicle", requestBody);
-      return response.data; // Returns { data: {...}, resultStatus: 0, messages: [...], isSuccess: true }
+      const response = await apiClient.post("/api/Vehicle", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+      return response.data;
     } catch (error) {
       throw error;
     }
   },
 
   /**
-   * Update existing vehicle
+   * Update existing vehicle (JSON based - used for edit)
    * @param {string} id - Vehicle UUID
    * @param {Object} vehicleData - Updated vehicle data
    * @returns {Promise} Response with updated vehicle
    */
   update: async (id, vehicleData) => {
     try {
-      // Prepare request body - exclude evmId and status as backend handles them
-      const requestBody = {
-        modelName: vehicleData.modelName,
-        version: vehicleData.version,
-        category: vehicleData.category,
-        color: vehicleData.color,
-        imageUrl: vehicleData.imageUrl,
-        description: vehicleData.description,
-        batteryCapacity: vehicleData.batteryCapacity,
-        rangePerCharge: vehicleData.rangePerCharge,
-        basePrice: vehicleData.basePrice,
-        launchDate: vehicleData.launchDate,
-      };
-
-      const response = await apiClient.put(`/api/Vehicle/${id}`, requestBody);
-      return response.data; // Returns { data: {...}, resultStatus: 0, messages: [...], isSuccess: true }
+      console.log("Updating vehicle:", id, vehicleData);
+      const response = await apiClient.put(`/api/Vehicle/${id}`, vehicleData);
+      console.log("Vehicle updated successfully:", response.data);
+      return response.data;
     } catch (error) {
+      console.error("Error updating vehicle:", error);
       throw error;
     }
   },
