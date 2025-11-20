@@ -27,16 +27,10 @@ function EVMStaffInventoryPage() {
     status: "",
   });
 
-  // Pagination state
+  // Simplified pagination state
   const [currentPage, setCurrentPage] = useState(1);
-  const [pagination, setPagination] = useState({
-    currentPage: 1,
-    pageSize: 10,
-    totalCount: 0,
-    totalPages: 0,
-    hasNext: false,
-    hasPrevious: false,
-  });
+  const [hasMoreData, setHasMoreData] = useState(true);
+  const pageSize = 10;
 
   useEffect(() => {
     if (user?.id) {
@@ -59,22 +53,17 @@ function EVMStaffInventoryPage() {
       const response = await inventoryApi.search({
         filters,
         pageNumber: currentPage,
-        pageSize: 10,
+        pageSize: pageSize,
       });
 
       if (response.isSuccess) {
-        setInventory(response.data || []);
-        setFilteredInventory(response.data || []);
-        setPagination(
-          response.pagination || {
-            currentPage: 1,
-            pageSize: 10,
-            totalCount: 0,
-            totalPages: 0,
-            hasNext: false,
-            hasPrevious: false,
-          }
-        );
+        const data = response.data || [];
+        setInventory(data);
+        setFilteredInventory(data);
+
+        // Check if we have more data by seeing if we got a full page
+        // If less than pageSize items returned, we've reached the end
+        setHasMoreData(data.length === pageSize);
       } else {
         setAlert({
           type: "error",
@@ -82,6 +71,7 @@ function EVMStaffInventoryPage() {
         });
         setInventory([]);
         setFilteredInventory([]);
+        setHasMoreData(false);
       }
     } catch (error) {
       console.error("Error fetching inventory:", error);
@@ -92,6 +82,7 @@ function EVMStaffInventoryPage() {
       });
       setInventory([]);
       setFilteredInventory([]);
+      setHasMoreData(false);
     } finally {
       setLoading(false);
     }
@@ -104,10 +95,16 @@ function EVMStaffInventoryPage() {
       [name]: value,
     }));
     setCurrentPage(1); // Reset to first page when filtering
+    setHasMoreData(true); // Reset pagination state
   };
 
-  const handlePageChange = (newPage) => {
-    setCurrentPage(newPage);
+  const handlePageChange = (direction) => {
+    if (direction === "next" && hasMoreData) {
+      setCurrentPage((prev) => prev + 1);
+    } else if (direction === "prev" && currentPage > 1) {
+      setCurrentPage((prev) => prev - 1);
+      setHasMoreData(true); // Re-enable next button when going back
+    }
   };
 
   const clearFilters = () => {
@@ -116,6 +113,8 @@ function EVMStaffInventoryPage() {
       dealerName: "",
       status: "",
     });
+    setCurrentPage(1);
+    setHasMoreData(true);
   };
 
   const hasActiveFilters =
@@ -315,6 +314,8 @@ function EVMStaffInventoryPage() {
               description={
                 hasActiveFilters
                   ? "Try adjusting your filters"
+                  : currentPage > 1
+                  ? "No more items. Go back to previous page."
                   : "No items in inventory"
               }
               icon={
@@ -331,6 +332,16 @@ function EVMStaffInventoryPage() {
                     d="M13 10V3L4 14h7v7l9-11h-7z"
                   />
                 </svg>
+              }
+              action={
+                currentPage > 1 && (
+                  <Button
+                    onClick={() => handlePageChange("prev")}
+                    variant="primary"
+                  >
+                    Go Back
+                  </Button>
+                )
               }
             />
           ) : (
@@ -397,98 +408,63 @@ function EVMStaffInventoryPage() {
           )}
         </Card>
 
-        {/* Pagination Controls */}
-        {!loading && filteredInventory.length > 0 && (
+        {/* Simplified Pagination Controls */}
+        {!loading && (filteredInventory.length > 0 || currentPage > 1) && (
           <Card>
-            <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center justify-between">
               <div className="text-sm text-slate-400">
-                {pagination.totalPages > 1 ? (
-                  <>
-                    Showing page{" "}
-                    <span className="font-semibold text-white">
-                      {pagination.currentPage}
-                    </span>{" "}
-                    of{" "}
-                    <span className="font-semibold text-white">
-                      {pagination.totalPages}
-                    </span>{" "}
-                    ({pagination.totalCount} total items)
-                  </>
-                ) : (
-                  <>
-                    <span className="font-semibold text-white">
-                      {filteredInventory.length}
-                    </span>{" "}
-                    items shown
-                  </>
+                Page{" "}
+                <span className="font-semibold text-white">{currentPage}</span>
+                {filteredInventory.length > 0 && (
+                  <> - Showing {filteredInventory.length} items</>
                 )}
               </div>
 
-              {pagination.totalPages > 1 && (
-                <div className="flex gap-2 items-center">
-                  <Button
-                    onClick={() => handlePageChange(currentPage - 1)}
-                    disabled={currentPage <= 1 || loading}
-                    variant="secondary"
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => handlePageChange("prev")}
+                  disabled={currentPage === 1 || loading}
+                  variant="secondary"
+                >
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
                   >
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M15 19l-7-7 7-7"
-                      />
-                    </svg>
-                    Previous
-                  </Button>
-
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-slate-400">Go to:</span>
-                    <input
-                      type="number"
-                      min="1"
-                      max={pagination.totalPages}
-                      value={currentPage}
-                      onChange={(e) => {
-                        const page = parseInt(e.target.value) || 1;
-                        if (page >= 1 && page <= pagination.totalPages) {
-                          handlePageChange(page);
-                        }
-                      }}
-                      className="w-12 px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-sm text-center focus:outline-none focus:border-blue-500"
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15 19l-7-7 7-7"
                     />
-                    <span className="text-xs text-slate-400">
-                      / {pagination.totalPages}
-                    </span>
-                  </div>
+                  </svg>
+                  Previous
+                </Button>
 
-                  <Button
-                    onClick={() => handlePageChange(currentPage + 1)}
-                    disabled={currentPage >= pagination.totalPages || loading}
-                    variant="secondary"
+                <Button
+                  onClick={() => handlePageChange("next")}
+                  disabled={
+                    !hasMoreData || filteredInventory.length === 0 || loading
+                  }
+                  variant="secondary"
+                >
+                  Next
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
                   >
-                    Next
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 5l7 7-7 7"
-                      />
-                    </svg>
-                  </Button>
-                </div>
-              )}
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 5l7 7-7 7"
+                    />
+                  </svg>
+                </Button>
+              </div>
             </div>
           </Card>
         )}
