@@ -22,11 +22,15 @@ export const appointmentsApi = {
     /**
      * Create new appointment
      * @param {Object} appointmentData - Appointment data
+     * @param {string} dealerStaffId - Dealer staff ID (sent as query param)
      * @returns {Promise} Response with created appointment
      */
-    create: async (appointmentData) => {
+    create: async (appointmentData, dealerStaffId) => {
         try {
-            const response = await apiClient.post("/api/Appointment", appointmentData);
+            const url = dealerStaffId
+                ? `/api/Appointment?dealerStaffId=${encodeURIComponent(dealerStaffId)}`
+                : "/api/Appointment";
+            const response = await apiClient.post(url, appointmentData);
             return response.data;
         } catch (error) {
             throw error;
