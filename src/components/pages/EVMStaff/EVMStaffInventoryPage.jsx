@@ -4,32 +4,39 @@ import {
   Card,
   Table,
   Button,
-  Modal,
   InputField,
   Badge,
   LoadingSpinner,
   Alert,
   EmptyState,
-  SearchInput,
 } from "../../common";
-import { formatCurrency } from "../../../utils/helpers";
-import { vehicleApi } from "../../../services/vehicleApi";
 import { inventoryApi } from "../../../services/inventoryApi";
 import { useAuth } from "../../../hooks/useAuth";
 
 function EVMStaffInventoryPage() {
   const { user } = useAuth();
-  const [vehicles, setVehicles] = useState([]);
-  const [filteredVehicles, setFilteredVehicles] = useState([]);
+  const [inventory, setInventory] = useState([]);
+  const [filteredInventory, setFilteredInventory] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState("");
   const [alert, setAlert] = useState({ type: "", message: "" });
 
-  // Modal states
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedVehicle, setSelectedVehicle] = useState(null);
-  const [quantity, setQuantity] = useState(1);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  // Filter states
+  const [filters, setFilters] = useState({
+    vehicleModelName: "",
+    dealerName: "",
+    status: "",
+  });
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    pageSize: 10,
+    totalCount: 0,
+    totalPages: 0,
+    hasNext: false,
+    hasPrevious: false,
+  });
 
   useEffect(() => {
     if (user?.id) {
@@ -37,22 +44,44 @@ function EVMStaffInventoryPage() {
     }
   }, [user]);
 
+  // Fetch inventory whenever filters or page changes
   useEffect(() => {
-    filterVehicles();
-  }, [searchQuery, vehicles]);
+    if (user?.id) {
+      fetchInventory();
+    }
+  }, [filters, currentPage]);
 
   const fetchInventory = async () => {
     try {
       setLoading(true);
       setAlert({ type: "", message: "" });
-      const response = await vehicleApi.getAll(user.id);
+
+      const response = await inventoryApi.search({
+        filters,
+        pageNumber: currentPage,
+        pageSize: 10,
+      });
+
       if (response.isSuccess) {
-        setVehicles(response.data);
+        setInventory(response.data || []);
+        setFilteredInventory(response.data || []);
+        setPagination(
+          response.pagination || {
+            currentPage: 1,
+            pageSize: 10,
+            totalCount: 0,
+            totalPages: 0,
+            hasNext: false,
+            hasPrevious: false,
+          }
+        );
       } else {
         setAlert({
           type: "error",
           message: response.messages?.[0] || "Failed to load inventory",
         });
+        setInventory([]);
+        setFilteredInventory([]);
       }
     } catch (error) {
       console.error("Error fetching inventory:", error);
@@ -61,134 +90,66 @@ function EVMStaffInventoryPage() {
         message:
           error.response?.data?.messages?.[0] || "Failed to load inventory",
       });
+      setInventory([]);
+      setFilteredInventory([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const filterVehicles = () => {
-    if (!searchQuery) {
-      setFilteredVehicles(vehicles);
-      return;
-    }
-
-    const query = searchQuery.toLowerCase();
-    const filtered = vehicles.filter(
-      (vehicle) =>
-        vehicle.modelName.toLowerCase().includes(query) ||
-        vehicle.version.toLowerCase().includes(query) ||
-        vehicle.category.toLowerCase().includes(query)
-    );
-    setFilteredVehicles(filtered);
+  const handleFilterChange = (e) => {
+    const { name, value } = e.target;
+    setFilters((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+    setCurrentPage(1); // Reset to first page when filtering
   };
 
-  const getStockVariant = (stock) => {
-    if (stock === 0) return "danger";
-    if (stock <= 5) return "warning";
-    return "success";
+  const handlePageChange = (newPage) => {
+    setCurrentPage(newPage);
   };
 
-  const openAddStockModal = (vehicle) => {
-    setSelectedVehicle(vehicle);
-    setQuantity(1);
-    setAlert({ type: "", message: "" });
-    setIsModalOpen(true);
+  const clearFilters = () => {
+    setFilters({
+      vehicleModelName: "",
+      dealerName: "",
+      status: "",
+    });
   };
 
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setSelectedVehicle(null);
-    setQuantity(1);
-    setAlert({ type: "", message: "" });
-  };
-
-  const handleAddStock = async (e) => {
-    e.preventDefault();
-
-    if (!selectedVehicle || quantity < 1) {
-      setAlert({ type: "error", message: "Invalid quantity" });
-      return;
-    }
-
-    setIsSubmitting(true);
-    setAlert({ type: "", message: "" });
-
-    try {
-      const response = await inventoryApi.addInventory(
-        selectedVehicle.id,
-        quantity
-      );
-
-      if (response.isSuccess) {
-        setAlert({
-          type: "success",
-          message:
-            response.messages?.[0] ||
-            `${quantity} units added to inventory successfully!`,
-        });
-
-        // Refresh inventory after delay
-        setTimeout(() => {
-          closeModal();
-          fetchInventory();
-        }, 1500);
-      } else {
-        setAlert({
-          type: "error",
-          message: response.messages?.[0] || "Failed to add stock",
-        });
-      }
-    } catch (error) {
-      console.error("Error adding stock:", error);
-      setAlert({
-        type: "error",
-        message:
-          error.response?.data?.messages?.[0] ||
-          "Failed to add stock. Please try again.",
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const totalStock = vehicles.reduce(
-    (sum, v) => sum + (v.currentStock || 0),
-    0
-  );
-  const outOfStock = vehicles.filter((v) => v.currentStock === 0).length;
-  const lowStock = vehicles.filter(
-    (v) => v.currentStock > 0 && v.currentStock <= 5
-  ).length;
+  const hasActiveFilters =
+    filters.vehicleModelName || filters.dealerName || filters.status;
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
+      <div className="space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-white">
+            <h1 className="text-2xl font-bold text-white">
               Manufacturer Inventory
             </h1>
-            <p className="text-slate-400 mt-1">
+            <p className="text-slate-400 mt-0.5 text-sm">
               Manage vehicle stock at manufacturer level
             </p>
           </div>
         </div>
 
         {/* Stats Cards */}
-        {!loading && vehicles.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {!loading && filteredInventory.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
             <Card>
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-slate-400">Total Models</p>
-                  <p className="text-2xl font-bold text-white mt-1">
-                    {vehicles.length}
+                  <p className="text-xs text-slate-400">Total Vehicles</p>
+                  <p className="text-xl font-bold text-white mt-1">
+                    {filteredInventory.length}
                   </p>
                 </div>
-                <div className="w-12 h-12 bg-blue-500 bg-opacity-20 rounded-lg flex items-center justify-center">
+                <div className="w-10 h-10 bg-blue-500 bg-opacity-20 rounded-lg flex items-center justify-center">
                   <svg
-                    className="w-6 h-6 text-blue-500"
+                    className="w-5 h-5 text-blue-500"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -207,14 +168,18 @@ function EVMStaffInventoryPage() {
             <Card>
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-slate-400">Total Stock</p>
-                  <p className="text-2xl font-bold text-white mt-1">
-                    {totalStock}
+                  <p className="text-xs text-slate-400">At Manufacturer</p>
+                  <p className="text-xl font-bold text-white mt-1">
+                    {
+                      filteredInventory.filter(
+                        (item) => item.status === "At Manufacturer"
+                      ).length
+                    }
                   </p>
                 </div>
-                <div className="w-12 h-12 bg-green-500 bg-opacity-20 rounded-lg flex items-center justify-center">
+                <div className="w-10 h-10 bg-green-500 bg-opacity-20 rounded-lg flex items-center justify-center">
                   <svg
-                    className="w-6 h-6 text-green-500"
+                    className="w-5 h-5 text-green-500"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -233,14 +198,18 @@ function EVMStaffInventoryPage() {
             <Card>
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-slate-400">Low Stock</p>
-                  <p className="text-2xl font-bold text-white mt-1">
-                    {lowStock}
+                  <p className="text-xs text-slate-400">Allocated to Dealer</p>
+                  <p className="text-xl font-bold text-white mt-1">
+                    {
+                      filteredInventory.filter(
+                        (item) => item.status === "Allocated to Dealer"
+                      ).length
+                    }
                   </p>
                 </div>
-                <div className="w-12 h-12 bg-yellow-500 bg-opacity-20 rounded-lg flex items-center justify-center">
+                <div className="w-10 h-10 bg-yellow-500 bg-opacity-20 rounded-lg flex items-center justify-center">
                   <svg
-                    className="w-6 h-6 text-yellow-500"
+                    className="w-5 h-5 text-yellow-500"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -259,14 +228,17 @@ function EVMStaffInventoryPage() {
             <Card>
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-slate-400">Out of Stock</p>
-                  <p className="text-2xl font-bold text-white mt-1">
-                    {outOfStock}
+                  <p className="text-xs text-slate-400">Sold</p>
+                  <p className="text-xl font-bold text-white mt-1">
+                    {
+                      filteredInventory.filter((item) => item.status === "sold")
+                        .length
+                    }
                   </p>
                 </div>
-                <div className="w-12 h-12 bg-red-500 bg-opacity-20 rounded-lg flex items-center justify-center">
+                <div className="w-10 h-10 bg-red-500 bg-opacity-20 rounded-lg flex items-center justify-center">
                   <svg
-                    className="w-6 h-6 text-red-500"
+                    className="w-5 h-5 text-red-500"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -284,14 +256,48 @@ function EVMStaffInventoryPage() {
           </div>
         )}
 
-        {/* Search */}
+        {/* Filters */}
         <Card>
-          <SearchInput
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by model, version, or category..."
-            className="w-full"
-          />
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <InputField
+                id="vehicleModelName"
+                name="vehicleModelName"
+                type="text"
+                label="Vehicle Model Name"
+                value={filters.vehicleModelName}
+                onChange={handleFilterChange}
+              />
+              <InputField
+                id="dealerName"
+                name="dealerName"
+                type="text"
+                label="Dealer Name"
+                value={filters.dealerName}
+                onChange={handleFilterChange}
+              />
+              <InputField
+                id="status"
+                name="status"
+                type="text"
+                label="Status"
+                value={filters.status}
+                onChange={handleFilterChange}
+              />
+            </div>
+
+            {hasActiveFilters && (
+              <div className="flex justify-end">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={clearFilters}
+                >
+                  Clear Filters
+                </Button>
+              </div>
+            )}
+          </div>
         </Card>
 
         {/* Alert */}
@@ -300,16 +306,16 @@ function EVMStaffInventoryPage() {
         {/* Inventory Table */}
         <Card padding={false}>
           {loading ? (
-            <div className="flex justify-center items-center py-12">
+            <div className="flex justify-center items-center py-8">
               <LoadingSpinner size="lg" text="Loading inventory..." />
             </div>
-          ) : filteredVehicles.length === 0 ? (
+          ) : filteredInventory.length === 0 ? (
             <EmptyState
-              title="No vehicles found"
+              title="No inventory found"
               description={
-                searchQuery
-                  ? "Try adjusting your search"
-                  : "No vehicles in inventory"
+                hasActiveFilters
+                  ? "Try adjusting your filters"
+                  : "No items in inventory"
               }
               icon={
                 <svg
@@ -328,179 +334,165 @@ function EVMStaffInventoryPage() {
               }
             />
           ) : (
-            <Table>
-              <Table.Header>
-                <Table.HeaderCell>Vehicle</Table.HeaderCell>
-                <Table.HeaderCell>Category</Table.HeaderCell>
-                <Table.HeaderCell>Battery & Range</Table.HeaderCell>
-                <Table.HeaderCell align="right">Base Price</Table.HeaderCell>
-                <Table.HeaderCell align="center">
-                  Current Stock
-                </Table.HeaderCell>
-                <Table.HeaderCell>Status</Table.HeaderCell>
-                <Table.HeaderCell align="center">Action</Table.HeaderCell>
-              </Table.Header>
-              <Table.Body>
-                {filteredVehicles.map((vehicle) => (
-                  <Table.Row key={vehicle.id}>
-                    <Table.Cell>
-                      <div className="flex items-center gap-3">
-                        <img
-                          src={vehicle.imageUrl}
-                          alt={vehicle.modelName}
-                          className="w-16 h-16 rounded-lg object-cover bg-slate-700"
-                          onError={(e) => {
-                            e.target.src =
-                              "https://via.placeholder.com/150?text=No+Image";
-                          }}
-                        />
-                        <div>
-                          <p className="font-semibold text-white">
-                            {vehicle.modelName}
-                          </p>
-                          <p className="text-sm text-slate-400">
-                            {vehicle.version}
-                          </p>
-                        </div>
-                      </div>
-                    </Table.Cell>
-                    <Table.Cell>
-                      <span className="text-slate-300">{vehicle.category}</span>
-                    </Table.Cell>
-                    <Table.Cell>
-                      <div className="text-sm">
-                        <p className="text-slate-300">
-                          {vehicle.batteryCapacity} kWh
+            <div className="overflow-x-auto">
+              <Table>
+                <Table.Header>
+                  <Table.HeaderCell>Model</Table.HeaderCell>
+                  <Table.HeaderCell>Dealer</Table.HeaderCell>
+                  <Table.HeaderCell>VIN</Table.HeaderCell>
+                  <Table.HeaderCell>Status</Table.HeaderCell>
+                  <Table.HeaderCell>Created</Table.HeaderCell>
+                  <Table.HeaderCell>Updated</Table.HeaderCell>
+                </Table.Header>
+                <Table.Body>
+                  {filteredInventory.map((item) => (
+                    <Table.Row key={item.id}>
+                      <Table.Cell>
+                        <p className="font-semibold text-white text-sm">
+                          {item.vehicleModelName}
                         </p>
-                        <p className="text-slate-500">
-                          {vehicle.rangePerCharge} km
-                        </p>
-                      </div>
-                    </Table.Cell>
-                    <Table.Cell align="right">
-                      <span className="font-semibold text-white">
-                        {formatCurrency(vehicle.basePrice)}
-                      </span>
-                    </Table.Cell>
-                    <Table.Cell align="center">
-                      <Badge variant={getStockVariant(vehicle.currentStock)}>
-                        {vehicle.currentStock} units
-                      </Badge>
-                    </Table.Cell>
-                    <Table.Cell>
-                      <Badge
-                        variant={
-                          vehicle.status === "Available" ? "success" : "default"
-                        }
-                      >
-                        {vehicle.status}
-                      </Badge>
-                    </Table.Cell>
-                    <Table.Cell align="center">
-                      <Button
-                        onClick={() => openAddStockModal(vehicle)}
-                        variant="primary"
-                      >
-                        <svg
-                          className="w-4 h-4 mr-1"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
+                      </Table.Cell>
+                      <Table.Cell>
+                        <span className="text-slate-300 text-sm">
+                          {item.dealerName}
+                        </span>
+                      </Table.Cell>
+                      <Table.Cell>
+                        <span className="text-slate-300 font-mono text-xs">
+                          {item.vinNumber.slice(0, 20)}...
+                        </span>
+                      </Table.Cell>
+                      <Table.Cell>
+                        <Badge
+                          variant={
+                            item.status === "At Manufacturer"
+                              ? "warning"
+                              : item.status === "Allocated to Dealer"
+                              ? "success"
+                              : item.status === "sold"
+                              ? "danger"
+                              : "default"
+                          }
                         >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M12 4v16m8-8H4"
-                          />
-                        </svg>
-                        Add Stock
-                      </Button>
-                    </Table.Cell>
-                  </Table.Row>
-                ))}
-              </Table.Body>
-            </Table>
-          )}
-        </Card>
-      </div>
-
-      {/* Add Stock Modal */}
-      <Modal
-        isOpen={isModalOpen}
-        onClose={closeModal}
-        title="Add Stock to Inventory"
-        size="md"
-      >
-        <form onSubmit={handleAddStock}>
-          <Alert type={alert.type} message={alert.message} />
-
-          {selectedVehicle && (
-            <div className="space-y-4 mb-6">
-              <div className="bg-slate-700 rounded-lg p-4 space-y-3">
-                <div className="flex items-center gap-3">
-                  <img
-                    src={selectedVehicle.imageUrl}
-                    alt={selectedVehicle.modelName}
-                    className="w-16 h-16 rounded-lg object-cover bg-slate-600"
-                    onError={(e) => {
-                      e.target.src =
-                        "https://via.placeholder.com/150?text=No+Image";
-                    }}
-                  />
-                  <div>
-                    <p className="text-white font-semibold">
-                      {selectedVehicle.modelName}
-                    </p>
-                    <p className="text-sm text-slate-400">
-                      {selectedVehicle.version}
-                    </p>
-                  </div>
-                </div>
-                <div>
-                  <p className="text-sm text-slate-400">Current Stock</p>
-                  <p className="text-2xl font-bold text-white">
-                    {selectedVehicle.currentStock} units
-                  </p>
-                </div>
-              </div>
-
-              <InputField
-                id="quantity"
-                name="quantity"
-                type="number"
-                label="Quantity to Add"
-                value={quantity}
-                onChange={(e) => setQuantity(Number(e.target.value))}
-                min={1}
-                required
-                disabled={isSubmitting}
-              />
-
-              <div className="bg-blue-500 bg-opacity-10 border border-blue-500 rounded-lg p-3">
-                <p className="text-blue-400 text-sm">
-                  <strong>Note:</strong> Adding {quantity} unit(s) will increase
-                  stock to {selectedVehicle.currentStock + quantity} units.
-                </p>
-              </div>
+                          {item.status}
+                        </Badge>
+                      </Table.Cell>
+                      <Table.Cell>
+                        <span className="text-slate-400 text-xs">
+                          {new Date(item.createdAt).toLocaleDateString()}
+                        </span>
+                      </Table.Cell>
+                      <Table.Cell>
+                        <span className="text-slate-400 text-xs">
+                          {item.updatedAt
+                            ? new Date(item.updatedAt).toLocaleDateString()
+                            : "N/A"}
+                        </span>
+                      </Table.Cell>
+                    </Table.Row>
+                  ))}
+                </Table.Body>
+              </Table>
             </div>
           )}
+        </Card>
 
-          <Modal.Footer>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={closeModal}
-              disabled={isSubmitting}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" isLoading={isSubmitting}>
-              {isSubmitting ? "Adding..." : "Add Stock"}
-            </Button>
-          </Modal.Footer>
-        </form>
-      </Modal>
+        {/* Pagination Controls */}
+        {!loading && filteredInventory.length > 0 && (
+          <Card>
+            <div className="flex items-center justify-between gap-4">
+              <div className="text-sm text-slate-400">
+                {pagination.totalPages > 1 ? (
+                  <>
+                    Showing page{" "}
+                    <span className="font-semibold text-white">
+                      {pagination.currentPage}
+                    </span>{" "}
+                    of{" "}
+                    <span className="font-semibold text-white">
+                      {pagination.totalPages}
+                    </span>{" "}
+                    ({pagination.totalCount} total items)
+                  </>
+                ) : (
+                  <>
+                    <span className="font-semibold text-white">
+                      {filteredInventory.length}
+                    </span>{" "}
+                    items shown
+                  </>
+                )}
+              </div>
+
+              {pagination.totalPages > 1 && (
+                <div className="flex gap-2 items-center">
+                  <Button
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage <= 1 || loading}
+                    variant="secondary"
+                  >
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M15 19l-7-7 7-7"
+                      />
+                    </svg>
+                    Previous
+                  </Button>
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-slate-400">Go to:</span>
+                    <input
+                      type="number"
+                      min="1"
+                      max={pagination.totalPages}
+                      value={currentPage}
+                      onChange={(e) => {
+                        const page = parseInt(e.target.value) || 1;
+                        if (page >= 1 && page <= pagination.totalPages) {
+                          handlePageChange(page);
+                        }
+                      }}
+                      className="w-12 px-2 py-1 bg-slate-700 border border-slate-600 rounded text-white text-sm text-center focus:outline-none focus:border-blue-500"
+                    />
+                    <span className="text-xs text-slate-400">
+                      / {pagination.totalPages}
+                    </span>
+                  </div>
+
+                  <Button
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage >= pagination.totalPages || loading}
+                    variant="secondary"
+                  >
+                    Next
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 5l7 7-7 7"
+                      />
+                    </svg>
+                  </Button>
+                </div>
+              )}
+            </div>
+          </Card>
+        )}
+      </div>
     </DashboardLayout>
   );
 }
