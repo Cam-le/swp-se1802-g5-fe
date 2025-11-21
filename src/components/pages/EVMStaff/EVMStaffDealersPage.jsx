@@ -35,6 +35,11 @@ function EVMStaffDealersPage() {
   const [editingDealer, setEditingDealer] = useState(null);
   const [isViewMode, setIsViewMode] = useState(false);
 
+  // Delete confirmation modal state
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [dealerToDelete, setDealerToDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   // Form states
   const [formData, setFormData] = useState({
     name: "",
@@ -176,6 +181,54 @@ function EVMStaffDealersPage() {
     });
     setFormErrors({});
     setAlert({ type: "", message: "" });
+  };
+
+  const openDeleteModal = (dealer) => {
+    setDealerToDelete(dealer);
+    setIsDeleteModalOpen(true);
+  };
+
+  const closeDeleteModal = () => {
+    setDealerToDelete(null);
+    setIsDeleteModalOpen(false);
+  };
+
+  const handleDelete = async () => {
+    if (!dealerToDelete) return;
+
+    try {
+      setIsDeleting(true);
+      setAlert({ type: "", message: "" });
+
+      const response = await dealerApi.delete(dealerToDelete.id);
+
+      if (response.isSuccess) {
+        // Remove dealer from state
+        setDealers((prev) => prev.filter((d) => d.id !== dealerToDelete.id));
+        setAlert({
+          type: "success",
+          message: response.messages?.[0] || "Dealer deleted successfully!",
+        });
+        closeDeleteModal();
+      } else {
+        setAlert({
+          type: "error",
+          message: response.messages?.[0] || "Failed to delete dealer",
+        });
+      }
+    } catch (error) {
+      console.error("Error deleting dealer:", error);
+      const errorMessage =
+        error.response?.data?.messages?.[0] ||
+        error.message ||
+        "Failed to delete dealer. Please try again.";
+      setAlert({
+        type: "error",
+        message: errorMessage,
+      });
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const handleInputChange = (e) => {
@@ -606,6 +659,25 @@ function EVMStaffDealersPage() {
                             />
                           </svg>
                         </button>
+                        <button
+                          onClick={() => openDeleteModal(dealer)}
+                          className="text-red-400 hover:text-red-300 transition-colors"
+                          title="Delete dealer"
+                        >
+                          <svg
+                            className="w-5 h-5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                            />
+                          </svg>
+                        </button>
                       </div>
                     </Table.Cell>
                   </Table.Row>
@@ -782,6 +854,75 @@ function EVMStaffDealersPage() {
             )}
           </Modal.Footer>
         </form>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={isDeleteModalOpen}
+        onClose={closeDeleteModal}
+        title="Delete Dealer"
+        size="md"
+      >
+        <div className="space-y-4">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 bg-red-500 bg-opacity-20 rounded-lg flex items-center justify-center flex-shrink-0">
+              <svg
+                className="w-6 h-6 text-red-500"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                />
+              </svg>
+            </div>
+            <div className="flex-1">
+              <p className="text-white font-medium mb-2">
+                Are you sure you want to delete this dealer?
+              </p>
+              {dealerToDelete && (
+                <div className="bg-slate-700 rounded-lg p-3 mb-3">
+                  <p className="text-sm text-slate-300 font-semibold">
+                    {dealerToDelete.name}
+                  </p>
+                  <p className="text-xs text-slate-400 mt-1">
+                    {dealerToDelete.email}
+                  </p>
+                  <p className="text-xs text-slate-400 font-mono mt-1">
+                    {dealerToDelete.contractNumber}
+                  </p>
+                </div>
+              )}
+              <p className="text-sm text-slate-400">
+                This action cannot be undone. All data associated with this
+                dealer will be permanently deleted.
+              </p>
+            </div>
+          </div>
+
+          <Modal.Footer>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={closeDeleteModal}
+              disabled={isDeleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="danger"
+              onClick={handleDelete}
+              isLoading={isDeleting}
+            >
+              Delete Dealer
+            </Button>
+          </Modal.Footer>
+        </div>
       </Modal>
     </DashboardLayout>
   );
