@@ -56,7 +56,7 @@ export default function OrdersDetail({ order, customer, vehicle }) {
                                 </div>
                                 <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700">
                                     <div className="text-slate-400 text-sm mb-1">Price</div>
-                                    <div className="text-orange-400 font-bold text-lg">{formatCurrency(vehicle.basePrice || vehicle.price || 0)}</div>
+                                    <div className="text-orange-400 font-bold text-lg">{formatCurrency(vehicle.finalPrice || vehicle.basePrice || vehicle.price || 0)}</div>
                                 </div>
                                 <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700">
                                     <div className="text-slate-400 text-sm mb-1">Stock</div>

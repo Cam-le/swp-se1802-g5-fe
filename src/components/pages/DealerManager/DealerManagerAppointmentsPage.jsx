@@ -119,7 +119,11 @@ function AppointmentsPage() {
                     dealer_name: a.dealerName || a.dealer_name,
                 }))
                 : [];
-            setAppointments(mappedAppointments);
+            // Filter by dealerId
+            const filteredAppointments = mappedAppointments.filter(appointment =>
+                appointment.dealer_id === user?.dealer_id
+            );
+            setAppointments(filteredAppointments);
         } catch (err) {
             console.error('Complete appointment error:', err);
             const errorMsg = err.response?.data?.message || err.response?.data || err.message || 'Failed to complete appointment.';
@@ -172,7 +176,11 @@ function AppointmentsPage() {
                     dealer_name: a.dealerName || a.dealer_name,
                 }))
                 : [];
-            setAppointments(mappedAppointments);
+            // Filter by dealerId
+            const filteredAppointments = mappedAppointments.filter(appointment =>
+                appointment.dealer_id === user?.dealer_id
+            );
+            setAppointments(filteredAppointments);
         } catch (err) {
             console.error('Cancel appointment error:', err);
             console.error('Error response:', err.response);
@@ -242,7 +250,11 @@ function AppointmentsPage() {
                     dealer_name: a.dealerName || a.dealer_name,
                 }))
                 : [];
-            setAppointments(mappedAppointments);
+            // Filter by dealerId
+            const filteredAppointments = mappedAppointments.filter(appointment =>
+                appointment.dealer_id === user?.dealer_id
+            );
+            setAppointments(filteredAppointments);
         } catch (err) {
             console.error('Reschedule appointment error:', err);
             const errorMsg = err.response?.data?.message || err.response?.data || err.message || 'Failed to reschedule appointment.';
@@ -316,7 +328,14 @@ function AppointmentsPage() {
                         dealer_name: a.dealerName || a.dealer_name,
                     }))
                     : [];
-                setAppointments(mappedAppointments);
+                // Filter appointments by dealerId to ensure only dealer-specific appointments are shown
+                const filteredAppointments = mappedAppointments.filter(appointment =>
+                    appointment.dealer_id === user?.dealer_id
+                );
+                console.log('Dealer ID:', user?.dealer_id);
+                console.log('Total appointments received:', mappedAppointments.length);
+                console.log('Filtered appointments:', filteredAppointments.length);
+                setAppointments(filteredAppointments);
             } catch (err) {
                 setAlert({ type: 'error', message: 'Failed to load customers, vehicles, or appointments' });
             } finally {
