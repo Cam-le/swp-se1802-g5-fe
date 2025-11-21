@@ -55,7 +55,16 @@ function DealerManagerOrdersPage() {
             vehicleApi.getAll(user?.id),
           ]
         );
-        setOrders(Array.isArray(ordersData) ? ordersData : []);
+        // Filter orders by dealerId to ensure only dealer-specific orders are shown
+        const filteredOrders = Array.isArray(ordersData)
+          ? ordersData.filter(order =>
+            (order.dealerId || order.dealer_id) === user?.dealer_id
+          )
+          : [];
+        console.log('Dealer ID:', user?.dealer_id);
+        console.log('Total orders received:', ordersData?.length);
+        console.log('Filtered orders:', filteredOrders.length);
+        setOrders(filteredOrders);
         setCustomers(Array.isArray(customersData) ? customersData : []);
         let vehicles = [];
         if (Array.isArray(vehiclesResponse)) {
@@ -559,12 +568,13 @@ function DealerManagerOrdersPage() {
                 <InputField
                   id="customer_phone"
                   name="customer_phone"
-                  label="Phone Number"
+                  label="Phone Number *"
                   value={formData.customer_phone || ""}
-                  onChange={handleInputChange}
+                  onChange={handlePhoneChange}
                   required
                   autoComplete="off"
                   error={phoneError}
+                  placeholder="Enter phone number to check existing customer"
                 />
                 <InputField
                   id="customer_address"

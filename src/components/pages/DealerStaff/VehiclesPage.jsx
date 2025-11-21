@@ -282,7 +282,7 @@ function VehiclesPage() {
 
       // Calculate price and quantity
       const qty = orderForm.quantity || 1;
-      const price = orderVehicle ? orderVehicle.basePrice || 0 : 0;
+      const price = orderVehicle ? orderVehicle.finalPrice || 0 : 0;
 
       // Prepare payload matching backend API
       const payload = {
@@ -508,7 +508,7 @@ function VehiclesPage() {
                     </div>
                   </div>
                   <div className="text-3xl font-bold text-orange-400 mb-4">
-                    {formatCurrency(detailVehicle.basePrice)}
+                    {formatCurrency(detailVehicle.finalPrice)}
                   </div>
                   <Button
                     variant="primary"
@@ -622,7 +622,7 @@ function VehiclesPage() {
                         </span>
                       </div>
                       <div className="text-lg font-bold text-orange-400 mb-2">
-                        {formatCurrency(vehicle.basePrice)}
+                        {formatCurrency(vehicle.finalPrice)}
                       </div>
                       <div className="flex gap-2 mt-auto">
                         <Button
@@ -701,7 +701,7 @@ function VehiclesPage() {
                   <div className="text-slate-400 text-sm mt-1">
                     Đơn giá:{" "}
                     <span className="font-semibold text-white">
-                      {formatCurrency(orderVehicle.basePrice)}
+                      {formatCurrency(orderVehicle.finalPrice)}
                     </span>
                   </div>
                 </div>

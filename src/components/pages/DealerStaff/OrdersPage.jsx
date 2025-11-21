@@ -54,7 +54,16 @@ function OrdersPage() {
             vehicleApi.getAll(user?.id),
           ]
         );
-        setOrders(Array.isArray(ordersData) ? ordersData : []);
+        // Filter orders by dealerId to ensure only dealer-specific orders are shown
+        const filteredOrders = Array.isArray(ordersData)
+          ? ordersData.filter(order =>
+            (order.dealerId || order.dealer_id) === user?.dealer_id
+          )
+          : [];
+        console.log('Dealer ID:', user?.dealer_id);
+        console.log('Total orders received:', ordersData?.length);
+        console.log('Filtered orders:', filteredOrders.length);
+        setOrders(filteredOrders);
         setCustomers(Array.isArray(customersData) ? customersData : []);
         let vehicles = [];
         if (Array.isArray(vehiclesResponse)) {
@@ -326,8 +335,8 @@ function OrdersPage() {
                         <td className="px-4 py-2">
                           <span
                             className={`px-2 py-1 rounded text-xs font-semibold ${o.orderStatus === "confirmed"
-                                ? "bg-green-500 text-white"
-                                : "bg-slate-600"
+                              ? "bg-green-500 text-white"
+                              : "bg-slate-600"
                               }`}
                           >
                             {o.orderStatus || o.status}
