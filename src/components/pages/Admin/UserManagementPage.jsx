@@ -32,6 +32,8 @@ function UserManagementPage() {
   const [users, setUsers] = useState([]);
   const [filteredUsers, setFilteredUsers] = useState([]);
   const [dealerNames, setDealerNames] = useState({}); // Map of dealerId -> dealerName
+  const [dealers, setDealers] = useState([]);
+  const [loadingDealers, setLoadingDealers] = useState(false);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
@@ -62,6 +64,11 @@ function UserManagementPage() {
   // Fetch users on mount
   useEffect(() => {
     fetchUsers();
+  }, []);
+
+  // Fetch dealers on mount
+  useEffect(() => {
+    fetchDealers();
   }, []);
 
   // Filter users when search or filters change
@@ -103,6 +110,20 @@ function UserManagementPage() {
       setAlert({ type: "error", message: errorMessage });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchDealers = async () => {
+    try {
+      setLoadingDealers(true);
+      const response = await dealerApi.getAll();
+      if (response.isSuccess) {
+        setDealers(response.data);
+      }
+    } catch (error) {
+      console.error("Error fetching dealers:", error);
+    } finally {
+      setLoadingDealers(false);
     }
   };
 
@@ -247,9 +268,27 @@ function UserManagementPage() {
         errors.password = "Password must be at least 6 characters";
 
       if (!formData.roleName) errors.roleName = "Role is required";
+
+      // Validate dealer selection for dealer roles
+      if (
+        (formData.roleName === "Dealer Staff" ||
+          formData.roleName === "Dealer Manager") &&
+        !formData.dealerId
+      ) {
+        errors.dealerId = "Dealer selection is required for dealer roles";
+      }
     } else {
       // Edit mode - only roleId and isActive are required
       if (!formData.roleId) errors.roleId = "Role is required";
+
+      // Validate dealer selection for dealer roles in edit mode
+      if (
+        (formData.roleId === ROLES.DEALER_STAFF.id ||
+          formData.roleId === ROLES.DEALER_MANAGER.id) &&
+        !formData.dealerId
+      ) {
+        errors.dealerId = "Dealer selection is required for dealer roles";
+      }
     }
 
     setFormErrors(errors);
@@ -704,21 +743,24 @@ function UserManagementPage() {
                 {/* Conditional Dealer Field for Dealer roles */}
                 {(formData.roleName === "Dealer Staff" ||
                   formData.roleName === "Dealer Manager") && (
-                  <div>
-                    <InputField
-                      id="dealerId"
-                      name="dealerId"
-                      label="Dealer ID"
-                      value={formData.dealerId}
-                      onChange={handleInputChange}
-                      error={formErrors.dealerId}
-                      placeholder="Enter Dealer UUID"
-                    />
-                    <p className="mt-1 text-xs text-slate-400">
-                      Note: Manual UUID input. Will be dropdown after Dealer
-                      Management is complete.
-                    </p>
-                  </div>
+                  <Select
+                    id="dealerId"
+                    name="dealerId"
+                    label="Dealer"
+                    value={formData.dealerId}
+                    onChange={handleInputChange}
+                    options={[
+                      { value: "", label: "Select a dealer" },
+                      ...dealers.map((dealer) => ({
+                        value: dealer.id,
+                        label: dealer.name,
+                      })),
+                    ]}
+                    error={formErrors.dealerId}
+                    placeholder="Select dealer"
+                    disabled={loadingDealers}
+                    required
+                  />
                 )}
 
                 <div>
@@ -778,21 +820,24 @@ function UserManagementPage() {
                 {/* Conditional Dealer Field for Dealer roles */}
                 {(formData.roleId === ROLES.DEALER_STAFF.id ||
                   formData.roleId === ROLES.DEALER_MANAGER.id) && (
-                  <div>
-                    <InputField
-                      id="dealerId"
-                      name="dealerId"
-                      label="Dealer ID"
-                      value={formData.dealerId}
-                      onChange={handleInputChange}
-                      error={formErrors.dealerId}
-                      placeholder="Enter Dealer UUID"
-                    />
-                    <p className="mt-1 text-xs text-slate-400">
-                      Note: Manual UUID input. Will be dropdown after Dealer
-                      Management is complete.
-                    </p>
-                  </div>
+                  <Select
+                    id="dealerId"
+                    name="dealerId"
+                    label="Dealer"
+                    value={formData.dealerId}
+                    onChange={handleInputChange}
+                    options={[
+                      { value: "", label: "Select a dealer" },
+                      ...dealers.map((dealer) => ({
+                        value: dealer.id,
+                        label: dealer.name,
+                      })),
+                    ]}
+                    error={formErrors.dealerId}
+                    placeholder="Select dealer"
+                    disabled={loadingDealers}
+                    required
+                  />
                 )}
 
                 <div>
