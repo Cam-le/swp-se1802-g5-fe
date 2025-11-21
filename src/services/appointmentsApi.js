@@ -36,4 +36,18 @@ export const appointmentsApi = {
             throw error;
         }
     },
+    /**
+     * Update appointment (for rescheduling)
+     * @param {string} id - Appointment ID
+     * @param {Object} updateData - Update data (appointmentDate, status, note)
+     * @returns {Promise} Response with updated appointment
+     */
+    update: async (id, updateData) => {
+        try {
+            const response = await apiClient.put(`/api/Appointment/${id}`, updateData);
+            return response.data;
+        } catch (error) {
+            throw error;
+        }
+    },
 };
