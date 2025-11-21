@@ -272,45 +272,56 @@ function DealerManagerOrdersPage() {
                 {alert.message && <Alert type={alert.type}>{alert.message}</Alert>}
 
                 {/* Orders Table */}
-                <div className="overflow-x-auto rounded-lg shadow">
-                    <table className="min-w-full bg-slate-800 text-white">
-                        <thead>
-                            <tr className="bg-slate-700">
-                                <th className="px-4 py-2 text-left">Order ID</th>
-                                <th className="px-4 py-2 text-left">Date</th>
-                                <th className="px-4 py-2 text-left">Customer</th>
-                                <th className="px-4 py-2 text-left">Vehicle</th>
-                                <th className="px-4 py-2 text-left">Status</th>
-                                <th className="px-4 py-2 text-left">Total</th>
-                                <th className="px-4 py-2 text-left">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {orders.map((o) => (
-                                <tr key={o.id} className="border-b border-slate-700">
-                                    <td className="px-4 py-2">{o.id}</td>
-                                    <td className="px-4 py-2">{formatDateTime(o.createdAt || o.created_at)}</td>
-                                    <td className="px-4 py-2">{o.customerName || o.customer_name || o.customerId || o.customer_id || "-"}</td>
-                                    <td className="px-4 py-2">{o.vehicleModelName ? `${o.vehicleModelName} ${o.vehicleVersion || ""}` : (o.vehicleName || o.vehicle_name || o.vehicleId || o.vehicle_id || "-")}</td>
-                                    <td className="px-4 py-2">
-                                        <span className={`px-2 py-1 rounded text-xs font-semibold ${o.orderStatus === "confirmed" || o.status === "confirmed" ? "bg-green-500 text-white" : "bg-slate-600"}`}>
-                                            {o.orderStatus || o.order_status || o.status || "-"}
-                                        </span>
-                                    </td>
-                                    <td className="px-4 py-2 font-bold text-orange-400">{formatCurrency(o.totalPrice || o.total_amount || o.total_price || 0)}</td>
-                                    <td className="px-4 py-2 flex gap-2">
-                                        <Button variant="primary" size="sm" onClick={() => handleShowOrderDetail(o)} title="Details">
-                                            <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                            </svg>
-                                        </Button>
-                                    </td>
+                {loading ? (
+                    <div className="flex justify-center items-center py-12">
+                        <LoadingSpinner size="lg" text="Loading orders..." />
+                    </div>
+                ) : orders.length === 0 ? (
+                    <EmptyState
+                        title="No orders found"
+                        description="There are no orders to display at the moment."
+                    />
+                ) : (
+                    <div className="overflow-x-auto rounded-lg shadow">
+                        <table className="min-w-full bg-slate-800 text-white">
+                            <thead>
+                                <tr className="bg-slate-700">
+                                    <th className="px-4 py-2 text-left">Order ID</th>
+                                    <th className="px-4 py-2 text-left">Date</th>
+                                    <th className="px-4 py-2 text-left">Customer</th>
+                                    <th className="px-4 py-2 text-left">Vehicle</th>
+                                    <th className="px-4 py-2 text-left">Status</th>
+                                    <th className="px-4 py-2 text-left">Total</th>
+                                    <th className="px-4 py-2 text-left">Actions</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
+                            </thead>
+                            <tbody>
+                                {orders.map((o) => (
+                                    <tr key={o.id} className="border-b border-slate-700">
+                                        <td className="px-4 py-2">{o.id}</td>
+                                        <td className="px-4 py-2">{formatDateTime(o.createdAt || o.created_at)}</td>
+                                        <td className="px-4 py-2">{o.customerName || o.customer_name || o.customerId || o.customer_id || "-"}</td>
+                                        <td className="px-4 py-2">{o.vehicleModelName ? `${o.vehicleModelName} ${o.vehicleVersion || ""}` : (o.vehicleName || o.vehicle_name || o.vehicleId || o.vehicle_id || "-")}</td>
+                                        <td className="px-4 py-2">
+                                            <span className={`px-2 py-1 rounded text-xs font-semibold ${o.orderStatus === "confirmed" || o.status === "confirmed" ? "bg-green-500 text-white" : "bg-slate-600"}`}>
+                                                {o.orderStatus || o.order_status || o.status || "-"}
+                                            </span>
+                                        </td>
+                                        <td className="px-4 py-2 font-bold text-orange-400">{formatCurrency(o.totalPrice || o.total_amount || o.total_price || 0)}</td>
+                                        <td className="px-4 py-2 flex gap-2">
+                                            <Button variant="primary" size="sm" onClick={() => handleShowOrderDetail(o)} title="Details">
+                                                <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                                </svg>
+                                            </Button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
 
                 {/* Create Order Modal */}
                 <Modal isOpen={isModalOpen} onClose={closeModal} title="Create Order">
