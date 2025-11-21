@@ -34,14 +34,17 @@ function DealerManagerPromotionsPage() {
   const [deleteLoading, setDeleteLoading] = useState(false);
 
   useEffect(() => {
-    fetchPromotions();
-  }, []);
+    if (user?.dealer_id) {
+      fetchPromotions();
+    }
+  }, [user]);
 
   const fetchPromotions = async () => {
     try {
       setLoading(true);
       setError(null);
-      const res = await promotionApi.getAll();
+      // Use dealer-specific API instead of getAll
+      const res = await promotionApi.getByDealerId(user.dealer_id);
       if (res.isSuccess) {
         setPromotions(res.data || []);
       } else {

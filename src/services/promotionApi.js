@@ -35,21 +35,6 @@ export const promotionApi = {
   },
 
   /**
-   * Get promotions by dealer ID
-   * @param {string} dealerId - Dealer UUID
-   * @returns {Promise} Response with array of dealer promotions
-   */
-  getByDealerId: async (dealerId) => {
-    try {
-      const response = await apiClient.get(`/api/Promotion/dealer/${dealerId}`);
-      return response.data;
-    } catch (error) {
-      console.error("Error fetching dealer promotions:", error);
-      throw error;
-    }
-  },
-
-  /**
    * Get promotion by ID
    * @param {string} id - Promotion UUID
    * @returns {Promise} Response with promotion data
@@ -191,6 +176,24 @@ export const promotionApi = {
       return response.data;
     } catch (error) {
       console.error("Error removing promotion:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get active promotions for a vehicle
+   * @param {string} vehicleId - Vehicle UUID
+   * @param {string} userId - User UUID
+   * @returns {Promise} Response with array of active promotions for the vehicle
+   */
+  getActiveByVehicle: async (vehicleId, userId) => {
+    try {
+      const response = await apiClient.get(
+        `/api/Promotion/active-by-vehicle?vehicleId=${vehicleId}&userId=${userId}`
+      );
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching active promotions for vehicle:", error);
       throw error;
     }
   },

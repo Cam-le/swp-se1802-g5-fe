@@ -71,6 +71,15 @@ function DealerManagerVehiclesPage() {
   const [promoError, setPromoError] = useState("");
   const [applyingPromo, setApplyingPromo] = useState(false);
 
+  // Vehicle promotions state - stores promotions for each vehicle
+  const [vehiclePromotions, setVehiclePromotions] = useState({});
+
+  // Remove promotion modal states
+  const [showRemovePromoModal, setShowRemovePromoModal] = useState(false);
+  const [removingPromotion, setRemovingPromotion] = useState(null);
+  const [removingFromVehicle, setRemovingFromVehicle] = useState(null);
+  const [removePromoLoading, setRemovePromoLoading] = useState(false);
+
   const openOrderModal = (vehicle) => {
     setOrderVehicle(vehicle);
     setOrderForm({
@@ -189,6 +198,13 @@ function DealerManagerVehiclesPage() {
     filterVehicles();
   }, [searchQuery, statusFilter, vehicles]);
 
+  // Fetch promotions for all vehicles
+  useEffect(() => {
+    if (vehicles.length > 0 && user?.id) {
+      fetchAllVehiclePromotions();
+    }
+  }, [vehicles, user]);
+
   const fetchVehicles = async () => {
     try {
       setLoading(true);
@@ -211,6 +227,30 @@ function DealerManagerVehiclesPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Fetch promotions for all vehicles
+  const fetchAllVehiclePromotions = async () => {
+    const promotionsMap = {};
+
+    for (const vehicle of vehicles) {
+      try {
+        const response = await promotionApi.getActiveByVehicle(
+          vehicle.id,
+          user.id
+        );
+        if (response.isSuccess && response.data && response.data.length > 0) {
+          promotionsMap[vehicle.id] = response.data;
+        }
+      } catch (error) {
+        console.error(
+          `Error fetching promotions for vehicle ${vehicle.id}:`,
+          error
+        );
+      }
+    }
+
+    setVehiclePromotions(promotionsMap);
   };
 
   const filterVehicles = () => {
@@ -569,8 +609,9 @@ function DealerManagerVehiclesPage() {
       return;
     }
 
-    if (editingPriceVehicle && price > editingPriceVehicle.basePrice) {
-      setPriceError("Selling price cannot be greater than base price");
+    // FIXED: Selling price must be HIGHER than base price
+    if (editingPriceVehicle && price < editingPriceVehicle.basePrice) {
+      setPriceError("Selling price must be higher than base price");
       return;
     }
 
@@ -600,8 +641,8 @@ function DealerManagerVehiclesPage() {
       console.error("Error updating selling price:", error);
       setPriceError(
         error.response?.data?.messages?.[0] ||
-        error.message ||
-        "Failed to update selling price"
+          error.message ||
+          "Failed to update selling price"
       );
     } finally {
       setIsPriceSubmitting(false);
@@ -615,10 +656,10 @@ function DealerManagerVehiclesPage() {
     setPromoError("");
     setShowPromoModal(true);
 
-    // Fetch available promotions
+    // Fetch available promotions by dealer
     setPromotionsLoading(true);
     try {
-      const response = await promotionApi.getAll();
+      const response = await promotionApi.getByDealerId(user.dealer_id);
       if (response.isSuccess) {
         // Filter only active promotions
         const activePromotions = response.data.filter((p) => p.isActive);
@@ -663,6 +704,7 @@ function DealerManagerVehiclesPage() {
           message: response.messages?.[0] || "Promotion applied successfully!",
         });
         await fetchVehicles();
+        await fetchAllVehiclePromotions();
         closePromoModal();
       } else {
         setPromoError(response.messages?.[0] || "Failed to apply promotion");
@@ -671,11 +713,65 @@ function DealerManagerVehiclesPage() {
       console.error("Error applying promotion:", error);
       setPromoError(
         error.response?.data?.messages?.[0] ||
-        error.message ||
-        "Failed to apply promotion"
+          error.message ||
+          "Failed to apply promotion"
       );
     } finally {
       setApplyingPromo(false);
+    }
+  };
+
+  // Remove promotion handlers
+  const openRemovePromoModal = (promotion, vehicle) => {
+    setRemovingPromotion(promotion);
+    setRemovingFromVehicle(vehicle);
+    setShowRemovePromoModal(true);
+  };
+
+  const closeRemovePromoModal = () => {
+    setShowRemovePromoModal(false);
+    setRemovingPromotion(null);
+    setRemovingFromVehicle(null);
+  };
+
+  const handleRemovePromotion = async () => {
+    if (!removingPromotion || !removingFromVehicle) return;
+
+    setRemovePromoLoading(true);
+
+    try {
+      const response = await promotionApi.removeFromVehicle(
+        removingPromotion.id,
+        removingFromVehicle.id
+      );
+
+      if (response.isSuccess) {
+        setAlert({
+          type: "success",
+          message: response.messages?.[0] || "Promotion removed successfully!",
+        });
+        await fetchVehicles();
+        await fetchAllVehiclePromotions();
+        closeRemovePromoModal();
+      } else {
+        setAlert({
+          type: "error",
+          message: response.messages?.[0] || "Failed to remove promotion",
+        });
+        closeRemovePromoModal();
+      }
+    } catch (error) {
+      console.error("Error removing promotion:", error);
+      setAlert({
+        type: "error",
+        message:
+          error.response?.data?.messages?.[0] ||
+          error.message ||
+          "Failed to remove promotion",
+      });
+      closeRemovePromoModal();
+    } finally {
+      setRemovePromoLoading(false);
     }
   };
 
@@ -715,6 +811,15 @@ function DealerManagerVehiclesPage() {
             Add Vehicle
           </Button>
         </div>
+
+        {/* Alert */}
+        {alert.message && (
+          <Alert
+            type={alert.type}
+            message={alert.message}
+            onClose={() => setAlert({ type: "", message: "" })}
+          />
+        )}
 
         {/* Filters */}
         <Card>
@@ -877,6 +982,54 @@ function DealerManagerVehiclesPage() {
                     </div>
                   </div>
 
+                  {/* Promotions in Detail View */}
+                  {vehiclePromotions[detailVehicle.id] &&
+                    vehiclePromotions[detailVehicle.id].length > 0 && (
+                      <div className="bg-slate-900 rounded-lg p-4 mb-4">
+                        <div className="text-base text-slate-400 mb-2">
+                          Active Promotions:
+                        </div>
+                        <div className="space-y-2">
+                          {vehiclePromotions[detailVehicle.id].map((promo) => (
+                            <div
+                              key={promo.id}
+                              className="flex items-center justify-between bg-slate-800 p-2 rounded"
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-semibold text-white">
+                                  {promo.name}
+                                </span>
+                                <span className="text-xs bg-green-500 text-white px-2 py-0.5 rounded">
+                                  {promo.discountPercent}% OFF
+                                </span>
+                              </div>
+                              <button
+                                onClick={() =>
+                                  openRemovePromoModal(promo, detailVehicle)
+                                }
+                                className="text-red-400 hover:text-red-300 transition-colors"
+                                title="Remove promotion"
+                              >
+                                <svg
+                                  className="w-4 h-4"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M6 18L18 6M6 6l12 12"
+                                  />
+                                </svg>
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                   <Button
                     variant="primary"
                     onClick={() => setDetailVehicle(null)}
@@ -942,6 +1095,55 @@ function DealerManagerVehiclesPage() {
                           {vehicle.description}
                         </div>
                       </div>
+
+                      {/* Active Promotions Display */}
+                      {vehiclePromotions[vehicle.id] &&
+                        vehiclePromotions[vehicle.id].length > 0 && (
+                          <div className="bg-green-500/10 border border-green-500 rounded-lg p-2 mb-2">
+                            <div className="text-xs text-green-300 font-semibold mb-1">
+                              Active Promotions:
+                            </div>
+                            <div className="space-y-1">
+                              {vehiclePromotions[vehicle.id].map((promo) => (
+                                <div
+                                  key={promo.id}
+                                  className="flex items-center justify-between"
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs text-white">
+                                      {promo.name}
+                                    </span>
+                                    <span className="text-[10px] bg-green-500 text-white px-1.5 py-0.5 rounded">
+                                      {promo.discountPercent}% OFF
+                                    </span>
+                                  </div>
+                                  <button
+                                    onClick={() =>
+                                      openRemovePromoModal(promo, vehicle)
+                                    }
+                                    className="text-red-400 hover:text-red-300 transition-colors"
+                                    title="Remove promotion"
+                                  >
+                                    <svg
+                                      className="w-3 h-3"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M6 18L18 6M6 6l12 12"
+                                      />
+                                    </svg>
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
                       <div className="grid grid-cols-2 gap-1 mb-1">
                         <div>
                           <span className="text-xs text-slate-400">Range:</span>
@@ -1041,24 +1243,24 @@ function DealerManagerVehiclesPage() {
                           </span>
                         </div>
                       </div>
-                      <div className="flex gap-2 mt-auto">
+                      <div className="flex gap-2 mt-auto justify-center">
                         <Button
                           variant="secondary"
-                          className="flex-1"
+                          className="text-xs px-3 py-1.5"
                           onClick={() => setDetailVehicle(vehicle)}
                         >
                           Detail
                         </Button>
                         <Button
                           variant="primary"
-                          className="flex-1 !bg-green-500 hover:!bg-green-600"
+                          className="text-xs px-3 py-1.5 !bg-green-500 hover:!bg-green-600"
                           onClick={() => openPromoModal(vehicle)}
                         >
-                          Apply Promo
+                          Promo
                         </Button>
                         <Button
                           variant="primary"
-                          className="flex-1 !bg-blue-500 hover:!bg-blue-600"
+                          className="text-xs px-3 py-1.5 !bg-blue-500 hover:!bg-blue-600"
                           onClick={() => openOrderModal(vehicle)}
                         >
                           Buy
@@ -1173,10 +1375,11 @@ function DealerManagerVehiclesPage() {
                   value={formData.description}
                   onChange={handleInputChange}
                   rows={3}
-                  className={`w-full px-4 py-3 bg-slate-700 border ${formErrors.description
+                  className={`w-full px-4 py-3 bg-slate-700 border ${
+                    formErrors.description
                       ? "border-red-500"
                       : "border-slate-600"
-                    } rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition`}
+                  } rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition`}
                   placeholder="Enter vehicle description..."
                 />
                 {formErrors.description && (
@@ -1266,8 +1469,8 @@ function DealerManagerVehiclesPage() {
                   alt={orderVehicle.modelName}
                   className="w-32 h-24 object-cover rounded bg-slate-700 border border-slate-600"
                   onError={(e) =>
-                  (e.target.src =
-                    "https://via.placeholder.com/128x96?text=No+Image")
+                    (e.target.src =
+                      "https://via.placeholder.com/128x96?text=No+Image")
                   }
                 />
                 <div className="flex-1">
@@ -1281,24 +1484,51 @@ function DealerManagerVehiclesPage() {
                     {orderVehicle.category}
                   </div>
                   <div className="text-slate-400 text-sm mt-1">
-                    Đơn giá: <span className="font-semibold text-white">{formatCurrency(orderVehicle.basePrice)}</span>
+                    Đơn giá:{" "}
+                    <span className="font-semibold text-white">
+                      {formatCurrency(orderVehicle.basePrice)}
+                    </span>
                   </div>
                 </div>
                 <div className="text-slate-400 text-sm">
-                  Số lượng: <input type="number" min="1" name="quantity" value={orderForm.quantity} onChange={handleOrderInputChange} className="w-16 px-2 py-1 rounded bg-slate-700 text-white border border-slate-600" />
+                  Số lượng:{" "}
+                  <input
+                    type="number"
+                    min="1"
+                    name="quantity"
+                    value={orderForm.quantity}
+                    onChange={handleOrderInputChange}
+                    className="w-16 px-2 py-1 rounded bg-slate-700 text-white border border-slate-600"
+                  />
                 </div>
               </div>
 
               {/* Payment Type */}
               <div>
-                <div className="font-semibold text-white mb-2">Chọn phương thức thanh toán</div>
+                <div className="font-semibold text-white mb-2">
+                  Chọn phương thức thanh toán
+                </div>
                 <div className="flex flex-col gap-2">
                   <label className="flex items-center gap-2 text-slate-300">
-                    <input type="radio" name="paymentType" value="full" checked={orderForm.paymentType === "full"} onChange={handleOrderInputChange} className="accent-blue-500" />
+                    <input
+                      type="radio"
+                      name="paymentType"
+                      value="full"
+                      checked={orderForm.paymentType === "full"}
+                      onChange={handleOrderInputChange}
+                      className="accent-blue-500"
+                    />
                     Thanh toán toàn bộ
                   </label>
                   <label className="flex items-center gap-2 text-slate-300">
-                    <input type="radio" name="paymentType" value="installment" checked={orderForm.paymentType === "installment"} onChange={handleOrderInputChange} className="accent-blue-500" />
+                    <input
+                      type="radio"
+                      name="paymentType"
+                      value="installment"
+                      checked={orderForm.paymentType === "installment"}
+                      onChange={handleOrderInputChange}
+                      className="accent-blue-500"
+                    />
                     Trả góp/Installment
                   </label>
                 </div>
@@ -1306,9 +1536,13 @@ function DealerManagerVehiclesPage() {
 
               {/* Customer Info */}
               <div>
-                <div className="font-semibold text-white mb-2">Nhập thông tin đơn hàng</div>
+                <div className="font-semibold text-white mb-2">
+                  Nhập thông tin đơn hàng
+                </div>
                 {existingCustomer && (
-                  <div className="bg-green-500/20 border border-green-500 text-green-300 px-3 py-2 rounded mb-3 text-sm">Existing customer found</div>
+                  <div className="bg-green-500/20 border border-green-500 text-green-300 px-3 py-2 rounded mb-3 text-sm">
+                    Existing customer found
+                  </div>
                 )}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <InputField
@@ -1357,8 +1591,20 @@ function DealerManagerVehiclesPage() {
               )}
 
               <div className="flex justify-end gap-3 pt-4 border-t border-slate-700">
-                <Button variant="secondary" type="button" onClick={closeOrderModal}>Hủy</Button>
-                <Button variant="primary" type="submit" isLoading={orderSubmitting}>Purchase</Button>
+                <Button
+                  variant="secondary"
+                  type="button"
+                  onClick={closeOrderModal}
+                >
+                  Hủy
+                </Button>
+                <Button
+                  variant="primary"
+                  type="submit"
+                  isLoading={orderSubmitting}
+                >
+                  Purchase
+                </Button>
               </div>
             </form>
           )}
@@ -1414,10 +1660,11 @@ function DealerManagerVehiclesPage() {
                     {availablePromotions.map((promo) => (
                       <label
                         key={promo.id}
-                        className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${selectedPromotionId === promo.id
+                        className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                          selectedPromotionId === promo.id
                             ? "border-blue-500 bg-blue-500/10"
                             : "border-slate-700 hover:border-slate-600"
-                          }`}
+                        }`}
                       >
                         <input
                           type="radio"
@@ -1473,6 +1720,47 @@ function DealerManagerVehiclesPage() {
                   }
                 >
                   Apply Promotion
+                </Button>
+              </Modal.Footer>
+            </div>
+          )}
+        </Modal>
+
+        {/* Remove Promotion Modal */}
+        <Modal
+          isOpen={showRemovePromoModal}
+          onClose={closeRemovePromoModal}
+          title="Remove Promotion"
+        >
+          {removingPromotion && removingFromVehicle && (
+            <div className="space-y-4">
+              <div className="text-slate-300">
+                Are you sure you want to remove the promotion{" "}
+                <span className="font-semibold text-white">
+                  "{removingPromotion.name}"
+                </span>{" "}
+                from{" "}
+                <span className="font-semibold text-white">
+                  {removingFromVehicle.modelName} -{" "}
+                  {removingFromVehicle.version}
+                </span>
+                ?
+              </div>
+              <Modal.Footer>
+                <Button
+                  variant="secondary"
+                  onClick={closeRemovePromoModal}
+                  disabled={removePromoLoading}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  onClick={handleRemovePromotion}
+                  isLoading={removePromoLoading}
+                  className="!bg-red-500 hover:!bg-red-600"
+                >
+                  Remove
                 </Button>
               </Modal.Footer>
             </div>
@@ -1639,6 +1927,5 @@ function DealerManagerVehiclesPage() {
       )}
     </DashboardLayout>
   );
-
 }
 export default DealerManagerVehiclesPage;
