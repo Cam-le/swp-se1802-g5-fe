@@ -252,10 +252,10 @@ function OrdersPage() {
   const selectedQty = formData.quantity || 1;
   const stockCount = selectedVehicle
     ? selectedVehicle.stock ??
-      selectedVehicle.available ??
-      selectedVehicle.inStock ??
-      selectedVehicle.currentStock ??
-      0
+    selectedVehicle.available ??
+    selectedVehicle.inStock ??
+    selectedVehicle.currentStock ??
+    0
     : 0;
   const notEnoughStock = selectedVehicle && selectedQty > stockCount;
 
@@ -278,22 +278,6 @@ function OrdersPage() {
             <h1 className="text-3xl font-bold text-white">Orders Page</h1>
             <p className="text-slate-400">Manage Customer's orders</p>
           </div>
-          <Button onClick={openCreateModal}>
-            <svg
-              className="w-5 h-5 mr-2"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 4v16m8-8H4"
-              />
-            </svg>
-            Create Order
-          </Button>
         </div>
 
         {alert.message && <Alert type={alert.type}>{alert.message}</Alert>}
@@ -308,8 +292,6 @@ function OrdersPage() {
             <EmptyState
               title="No orders found"
               description="You don't have any orders yet."
-              action={openCreateModal}
-              actionLabel="Create Order"
             />
           ) : (
             <div className="overflow-x-auto rounded-lg shadow">
@@ -343,11 +325,10 @@ function OrdersPage() {
                         </td>
                         <td className="px-4 py-2">
                           <span
-                            className={`px-2 py-1 rounded text-xs font-semibold ${
-                              o.orderStatus === "confirmed"
+                            className={`px-2 py-1 rounded text-xs font-semibold ${o.orderStatus === "confirmed"
                                 ? "bg-green-500 text-white"
                                 : "bg-slate-600"
-                            }`}
+                              }`}
                           >
                             {o.orderStatus || o.status}
                           </span>
@@ -419,9 +400,8 @@ function OrdersPage() {
                   Select a vehicle
                 </option>
                 {availableVehicles.map((v) => (
-                  <option key={v.id} value={v.id}>{`${
-                    v.modelName || v.model_name
-                  } ${v.version || ""}`}</option>
+                  <option key={v.id} value={v.id}>{`${v.modelName || v.model_name
+                    } ${v.version || ""}`}</option>
                 ))}
               </select>
             </div>
@@ -476,10 +456,10 @@ function OrdersPage() {
                         );
                         return v
                           ? `${(
-                              v.basePrice ||
-                              v.base_price ||
-                              0
-                            ).toLocaleString()} VND`
+                            v.basePrice ||
+                            v.base_price ||
+                            0
+                          ).toLocaleString()} VND`
                           : "";
                       })()}
                     </td>
@@ -506,8 +486,8 @@ function OrdersPage() {
                         const qty = formData.quantity || 1;
                         return v
                           ? `${(
-                              (v.basePrice || v.base_price || 0) * qty
-                            ).toLocaleString()} VND`
+                            (v.basePrice || v.base_price || 0) * qty
+                          ).toLocaleString()} VND`
                           : "";
                       })()}
                     </td>
@@ -538,8 +518,8 @@ function OrdersPage() {
                 const qty = formData.quantity || 1;
                 return v
                   ? `${(
-                      (v.basePrice || v.base_price || 0) * qty
-                    ).toLocaleString()} VND`
+                    (v.basePrice || v.base_price || 0) * qty
+                  ).toLocaleString()} VND`
                   : "0 VND";
               })()}
             </div>
@@ -679,11 +659,15 @@ function OrdersPage() {
           {selectedOrder &&
             (() => {
               const customer = customers.find(
-                (c) => c.id === selectedOrder.customer_id
+                (c) => c.id === selectedOrder.customer_id || c.id === selectedOrder.customerId
               );
               const vehicle = availableVehicles.find(
-                (v) => v.id === selectedOrder.vehicle_id
+                (v) => v.id === selectedOrder.vehicle_id || v.id === selectedOrder.vehicleId
               );
+              console.log('Selected Order:', selectedOrder);
+              console.log('Customer found:', customer);
+              console.log('Vehicle found:', vehicle);
+              console.log('Available vehicles:', availableVehicles);
               return (
                 <OrdersDetail
                   order={selectedOrder}

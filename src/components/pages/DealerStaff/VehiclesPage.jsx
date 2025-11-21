@@ -17,7 +17,6 @@ import { formatCurrency, formatShortDate } from "../../../utils/helpers";
 import { vehicleApi } from "../../../services/vehicleApi";
 import dealerOrdersApi from "../../../services/dealerOrdersApi";
 import { customerApi } from "../../../services/customerApi";
-import promotionApi from "../../../services/promotionApi";
 import { useAuth } from "../../../hooks/useAuth";
 
 // Status badge variant mapping
@@ -41,6 +40,36 @@ const getStockVariant = (stock) => {
   return "success";
 };
 
+// Order status badge mapping
+const getOrderStatusVariant = (status) => {
+  switch (status) {
+    case "confirmed":
+      return "success";
+    case "pending":
+      return "warning";
+    case "delivered":
+      return "info";
+    case "cancelled":
+      return "danger";
+    default:
+      return "default";
+  }
+};
+
+// Payment status badge mapping
+const getPaymentStatusVariant = (status) => {
+  switch (status) {
+    case "paid":
+      return "success";
+    case "partial_paid":
+      return "warning";
+    case "unpaid":
+      return "danger";
+    default:
+      return "default";
+  }
+};
+
 function VehiclesPage() {
   // Order modal state
   const [showOrderModal, setShowOrderModal] = useState(false);
@@ -57,6 +86,12 @@ function VehiclesPage() {
   const [orderSubmitting, setOrderSubmitting] = useState(false);
   const [orderError, setOrderError] = useState("");
   const [existingCustomer, setExistingCustomer] = useState(null);
+  const [orderCustomerId, setOrderCustomerId] = useState(null);
+  const [feedbackOrderInfo, setFeedbackOrderInfo] = useState(null);
+
+  // Order review modal state
+  const [showOrderReviewModal, setShowOrderReviewModal] = useState(false);
+  const [createdOrder, setCreatedOrder] = useState(null);
 
   const openOrderModal = (vehicle) => {
     setOrderVehicle(vehicle);
@@ -79,6 +114,18 @@ function VehiclesPage() {
     setOrderVehicle(null);
     setOrderError("");
     setExistingCustomer(null);
+  };
+
+  const closeOrderReviewModal = () => {
+    if (createdOrder) {
+      setFeedbackOrderInfo({
+        orderId: createdOrder.id,
+        customerId: orderCustomerId,
+      });
+    }
+    setShowOrderReviewModal(false);
+
+    setShowFeedbackPrompt(true);
   };
 
   // Handle phone input change with customer lookup
@@ -138,9 +185,6 @@ function VehiclesPage() {
   const [statusFilter, setStatusFilter] = useState("");
   const [alert, setAlert] = useState({ type: "", message: "" });
 
-  // Promotions state - stores promotions for each vehicle
-  const [vehiclePromotions, setVehiclePromotions] = useState({});
-
   // Feedback modal state
   const [showFeedbackPrompt, setShowFeedbackPrompt] = useState(false);
   const [showFeedbackForm, setShowFeedbackForm] = useState(false);
@@ -158,13 +202,6 @@ function VehiclesPage() {
   useEffect(() => {
     filterVehicles();
   }, [searchQuery, statusFilter, vehicles]);
-
-  // Fetch promotions for all vehicles
-  useEffect(() => {
-    if (vehicles.length > 0 && user?.id) {
-      fetchAllVehiclePromotions();
-    }
-  }, [vehicles, user]);
 
   const [customers, setCustomers] = useState([]);
 
@@ -206,30 +243,6 @@ function VehiclesPage() {
     }
   };
 
-  // Fetch promotions for all vehicles
-  const fetchAllVehiclePromotions = async () => {
-    const promotionsMap = {};
-
-    for (const vehicle of vehicles) {
-      try {
-        const response = await promotionApi.getActiveByVehicle(
-          vehicle.id,
-          user.id
-        );
-        if (response.isSuccess && response.data && response.data.length > 0) {
-          promotionsMap[vehicle.id] = response.data;
-        }
-      } catch (error) {
-        console.error(
-          `Error fetching promotions for vehicle ${vehicle.id}:`,
-          error
-        );
-      }
-    }
-
-    setVehiclePromotions(promotionsMap);
-  };
-
   const filterVehicles = () => {
     let filtered = [...vehicles];
 
@@ -269,9 +282,7 @@ function VehiclesPage() {
 
       // Calculate price and quantity
       const qty = orderForm.quantity || 1;
-      const price = orderVehicle
-        ? orderVehicle.finalPrice || orderVehicle.basePrice || 0
-        : 0;
+      const price = orderVehicle ? orderVehicle.basePrice || 0 : 0;
 
       // Prepare payload matching backend API
       const payload = {
@@ -286,7 +297,11 @@ function VehiclesPage() {
         totalPrice: price * qty,
       };
 
-      await dealerOrdersApi.create(payload);
+      const response = await dealerOrdersApi.create(payload);
+
+      // Store the created order data
+      setCreatedOrder(response);
+      setOrderCustomerId(response.customerId);
 
       // Refetch customers
       try {
@@ -299,12 +314,14 @@ function VehiclesPage() {
       setOrderError("");
       setOrderSubmitting(false);
       setShowOrderModal(false);
-      setShowFeedbackPrompt(true);
+
+      // Show order review modal
+      setShowOrderReviewModal(true);
     } catch (err) {
       console.error("Error creating order:", err);
       setOrderError(
         err.response?.data?.message ||
-          "Failed to create order. Please try again."
+        "Failed to create order. Please try again."
       );
       setOrderSubmitting(false);
     }
@@ -316,6 +333,9 @@ function VehiclesPage() {
     setShowFeedbackForm(false);
     setFeedbackText("");
     setShowThankYou(false);
+    setCreatedOrder(null);
+    setOrderCustomerId(null);
+    setFeedbackOrderInfo(null);
   };
 
   const handleFeedbackYes = () => {
@@ -325,16 +345,45 @@ function VehiclesPage() {
     setShowThankYou(false);
   };
 
-  const handleSendFeedback = (e) => {
+  const handleSendFeedback = async (e) => {
     e.preventDefault();
-    setShowFeedbackForm(false);
-    setShowThankYou(true);
-  };
 
-  const formatDate = (dateString) => {
-    if (!dateString) return "-";
-    const date = new Date(dateString);
-    return date.toLocaleDateString("vi-VN");
+    if (!feedbackText.trim()) {
+      console.log("Feedback text is empty");
+      return;
+    }
+
+    console.log("Feedback Order Info:", feedbackOrderInfo);
+
+    if (!feedbackOrderInfo || !feedbackOrderInfo.orderId || !feedbackOrderInfo.customerId) {
+      console.error("Missing order or customer information");
+      setShowFeedbackForm(false);
+      setShowThankYou(true);
+      return;
+    }
+
+    try {
+      const feedbackData = {
+        orderId: feedbackOrderInfo.orderId,
+        customerId: feedbackOrderInfo.customerId,
+        content: feedbackText.trim(),
+      };
+
+      console.log("Sending feedback:", feedbackData);
+
+      const response = await vehicleApi.createFeedback(feedbackData);
+
+      console.log("Feedback created successfully:", response);
+
+      setShowFeedbackForm(false);
+      setShowThankYou(true);
+      setFeedbackText("");
+    } catch (error) {
+      console.error("Error submitting feedback:", error);
+      console.error("Error response:", error.response?.data);
+      setShowFeedbackForm(false);
+      setShowThankYou(true);
+    }
   };
 
   return (
@@ -458,73 +507,9 @@ function VehiclesPage() {
                       </span>
                     </div>
                   </div>
-
-                  {/* Promotions in Detail View */}
-                  {vehiclePromotions[detailVehicle.id] &&
-                    vehiclePromotions[detailVehicle.id].length > 0 && (
-                      <div className="bg-green-500/10 border border-green-500 rounded-lg p-4 mb-4">
-                        <div className="text-base text-green-300 font-semibold mb-2">
-                          Active Promotions:
-                        </div>
-                        <div className="space-y-2">
-                          {vehiclePromotions[detailVehicle.id].map((promo) => (
-                            <div
-                              key={promo.id}
-                              className="flex items-center justify-between bg-slate-900 p-3 rounded"
-                            >
-                              <div className="flex flex-col gap-1">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-sm font-semibold text-white">
-                                    {promo.name}
-                                  </span>
-                                  <span className="text-xs bg-green-500 text-white px-2 py-0.5 rounded">
-                                    {promo.discountPercent}% OFF
-                                  </span>
-                                </div>
-                                <span className="text-xs text-slate-400">
-                                  {promo.description}
-                                </span>
-                                <span className="text-xs text-slate-500">
-                                  Valid: {formatDate(promo.startDate)} -{" "}
-                                  {formatDate(promo.endDate)}
-                                </span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                  {/* Price Display in Detail View */}
-                  <div className="bg-slate-900 rounded-lg p-4 mb-4 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-base text-slate-400">
-                        Base Price:
-                      </span>
-                      <span className="text-lg font-semibold text-slate-300">
-                        {formatCurrency(detailVehicle.basePrice)}
-                      </span>
-                    </div>
-                    {detailVehicle.sellingPrice && (
-                      <div className="flex items-center justify-between">
-                        <span className="text-base text-slate-400">
-                          Selling Price:
-                        </span>
-                        <span className="text-lg font-semibold text-blue-400">
-                          {formatCurrency(detailVehicle.sellingPrice)}
-                        </span>
-                      </div>
-                    )}
-                    <div className="flex items-center justify-between pt-2 border-t border-slate-700">
-                      <span className="text-base text-slate-400">
-                        Final Price:
-                      </span>
-                      <span className="text-3xl font-bold text-orange-400">
-                        {formatCurrency(detailVehicle.finalPrice)}
-                      </span>
-                    </div>
+                  <div className="text-3xl font-bold text-orange-400 mb-4">
+                    {formatCurrency(detailVehicle.basePrice)}
                   </div>
-
                   <Button
                     variant="primary"
                     onClick={() => setDetailVehicle(null)}
@@ -588,34 +573,6 @@ function VehiclesPage() {
                           {vehicle.description}
                         </div>
                       </div>
-
-                      {/* Active Promotions Display */}
-                      {vehiclePromotions[vehicle.id] &&
-                        vehiclePromotions[vehicle.id].length > 0 && (
-                          <div className="bg-green-500/10 border border-green-500 rounded-lg p-2 mb-2">
-                            <div className="text-xs text-green-300 font-semibold mb-1">
-                              Active Promotions:
-                            </div>
-                            <div className="space-y-1">
-                              {vehiclePromotions[vehicle.id].map((promo) => (
-                                <div
-                                  key={promo.id}
-                                  className="flex items-center justify-between"
-                                >
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-xs text-white">
-                                      {promo.name}
-                                    </span>
-                                    <span className="text-[10px] bg-green-500 text-white px-1.5 py-0.5 rounded">
-                                      {promo.discountPercent}% OFF
-                                    </span>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
                       <div className="grid grid-cols-2 gap-1 mb-1">
                         <div>
                           <span className="text-xs text-slate-400">Range:</span>
@@ -665,7 +622,7 @@ function VehiclesPage() {
                         </span>
                       </div>
                       <div className="text-lg font-bold text-orange-400 mb-2">
-                        {formatCurrency(vehicle.finalPrice)}
+                        {formatCurrency(vehicle.basePrice)}
                       </div>
                       <div className="flex gap-2 mt-auto">
                         <Button
@@ -727,8 +684,8 @@ function VehiclesPage() {
                   alt={orderVehicle.modelName}
                   className="w-32 h-24 object-cover rounded bg-slate-700 border border-slate-600"
                   onError={(e) =>
-                    (e.target.src =
-                      "https://via.placeholder.com/128x96?text=No+Image")
+                  (e.target.src =
+                    "https://via.placeholder.com/128x96?text=No+Image")
                   }
                 />
                 <div className="flex-1">
@@ -744,7 +701,7 @@ function VehiclesPage() {
                   <div className="text-slate-400 text-sm mt-1">
                     Đơn giá:{" "}
                     <span className="font-semibold text-white">
-                      {formatCurrency(orderVehicle.finalPrice)}
+                      {formatCurrency(orderVehicle.basePrice)}
                     </span>
                   </div>
                 </div>
@@ -873,6 +830,179 @@ function VehiclesPage() {
                 </Button>
               </div>
             </form>
+          )}
+        </Modal>
+
+        {/* Order Review Modal */}
+        <Modal
+          isOpen={showOrderReviewModal}
+          onClose={closeOrderReviewModal}
+          title="Order Confirmation"
+          size="lg"
+        >
+          {createdOrder && (
+            <div className="space-y-6">
+              {/* Success Message */}
+              <div className="bg-green-500/20 border border-green-500 text-green-300 px-4 py-3 rounded-lg text-center">
+                <div className="font-bold text-lg mb-1">
+                  ✓ Order Created Successfully!
+                </div>
+                <div className="text-sm">
+                  Order ID: {createdOrder.id}
+                </div>
+              </div>
+
+              {/* Vehicle Information */}
+              <div className="border-b border-slate-700 pb-4">
+                <h3 className="font-semibold text-white mb-3">
+                  Vehicle Information
+                </h3>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-slate-400">Model:</span>
+                    <div className="text-white font-semibold">
+                      {createdOrder.vehicleModelName}
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-slate-400">Version:</span>
+                    <div className="text-white font-semibold">
+                      {createdOrder.vehicleVersion}
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-slate-400">VIN Number:</span>
+                    <div className="text-white font-semibold">
+                      {createdOrder.vinNumber || "N/A"}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Customer Information */}
+              <div className="border-b border-slate-700 pb-4">
+                <h3 className="font-semibold text-white mb-3">
+                  Customer Information
+                </h3>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-slate-400">Name:</span>
+                    <div className="text-white font-semibold">
+                      {createdOrder.customerName}
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-slate-400">Phone:</span>
+                    <div className="text-white font-semibold">
+                      {createdOrder.customerPhone}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Dealer Information */}
+              <div className="border-b border-slate-700 pb-4">
+                <h3 className="font-semibold text-white mb-3">
+                  Dealer Information
+                </h3>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-slate-400">Dealer:</span>
+                    <div className="text-white font-semibold">
+                      {createdOrder.dealerName}
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-slate-400">Staff:</span>
+                    <div className="text-white font-semibold">
+                      {createdOrder.dealerStaffName}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Order Details */}
+              <div className="border-b border-slate-700 pb-4">
+                <h3 className="font-semibold text-white mb-3">
+                  Order Details
+                </h3>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-slate-400">Payment Type:</span>
+                    <div className="text-white font-semibold capitalize">
+                      {createdOrder.paymentType === "installment"
+                        ? "Trả góp/Installment"
+                        : "Thanh toán toàn bộ"}
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-slate-400">Total Price:</span>
+                    <div className="text-orange-400 font-bold text-lg">
+                      {formatCurrency(createdOrder.totalPrice)}
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-slate-400">Order Status:</span>
+                    <div className="font-semibold">
+                      <Badge
+                        variant={getOrderStatusVariant(
+                          createdOrder.orderStatus
+                        )}
+                      >
+                        {createdOrder.orderStatus}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-slate-400">Payment Status:</span>
+                    <div className="font-semibold">
+                      <Badge
+                        variant={getPaymentStatusVariant(
+                          createdOrder.paymentStatus
+                        )}
+                      >
+                        {createdOrder.paymentStatus}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-slate-400">Created At:</span>
+                    <div className="text-white font-semibold">
+                      {createdOrder.createdAt
+                        ? formatShortDate(createdOrder.createdAt)
+                        : "N/A"}
+                    </div>
+                  </div>
+                  {createdOrder.deliveredAt && (
+                    <div>
+                      <span className="text-slate-400">Delivered At:</span>
+                      <div className="text-white font-semibold">
+                        {formatShortDate(createdOrder.deliveredAt)}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                {createdOrder.note && (
+                  <div className="mt-4">
+                    <span className="text-slate-400">Note:</span>
+                    <div className="text-white mt-1 p-3 bg-slate-700 rounded">
+                      {createdOrder.note}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Actions */}
+              <div className="flex justify-end gap-3 pt-4">
+                <Button
+                  variant="primary"
+                  onClick={closeOrderReviewModal}
+                  className="px-8"
+                >
+                  Continue
+                </Button>
+              </div>
+            </div>
           )}
         </Modal>
 

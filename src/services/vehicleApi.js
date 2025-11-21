@@ -113,6 +113,17 @@ export const vehicleApi = {
       throw error;
     }
   },
+
+  createFeedback: async (feedbackData) => {
+    try {
+      const response = await apiClient.post("/api/Feedback", feedbackData);
+      return response.data;
+    } catch (error) {
+      console.error("Error creating feedback:", error);
+      throw error;
+    }
+  },
+
 };
 
 export default vehicleApi;

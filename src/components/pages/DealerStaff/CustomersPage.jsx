@@ -178,12 +178,6 @@ function CustomersPage() {
                         <h1 className="text-3xl font-bold text-white">Customers Page</h1>
                         <p className="text-slate-400">Customers Management</p>
                     </div>
-                    <Button onClick={openCreateModal}>
-                        <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                        </svg>
-                        Add Customer
-                    </Button>
                 </div>
 
                 {alert.message && <Alert type={alert.type}>{alert.message}</Alert>}
@@ -195,7 +189,7 @@ function CustomersPage() {
                             <LoadingSpinner size="lg" text="Loading customers..." />
                         </div>
                     ) : customers.length === 0 ? (
-                        <EmptyState title="No customers found" description="You don't have any customers yet. Add one to get started." action={openCreateModal} actionLabel="Add Customer" />
+                        <EmptyState title="No customers found" description="You don't have any customers yet." />
                     ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                             {customers.map((c) => (

@@ -267,12 +267,6 @@ function DealerManagerOrdersPage() {
                         <h1 className="text-3xl font-bold text-white">Orders Page</h1>
                         <p className="text-slate-400">Manage Customer's orders</p>
                     </div>
-                    <Button onClick={openCreateModal}>
-                        <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                        </svg>
-                        Create Order
-                    </Button>
                 </div>
 
                 {alert.message && <Alert type={alert.type}>{alert.message}</Alert>}
@@ -447,8 +441,12 @@ function DealerManagerOrdersPage() {
                 {/* Order Detail Modal */}
                 <Modal isOpen={showOrderDetail} onClose={handleCloseOrderDetail} title="Order Details" size="lg">
                     {selectedOrder && (() => {
-                        const customer = customers.find(c => c.id === selectedOrder.customer_id);
-                        const vehicle = availableVehicles.find(v => v.id === selectedOrder.vehicle_id);
+                        const customer = customers.find(c => c.id === selectedOrder.customer_id || c.id === selectedOrder.customerId);
+                        const vehicle = availableVehicles.find(v => v.id === selectedOrder.vehicle_id || v.id === selectedOrder.vehicleId);
+                        console.log('Selected Order:', selectedOrder);
+                        console.log('Customer found:', customer);
+                        console.log('Vehicle found:', vehicle);
+                        console.log('Available vehicles:', availableVehicles);
                         return (
                             <OrdersDetail
                                 order={selectedOrder}
