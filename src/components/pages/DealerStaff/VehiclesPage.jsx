@@ -17,6 +17,7 @@ import { formatCurrency, formatShortDate } from "../../../utils/helpers";
 import { vehicleApi } from "../../../services/vehicleApi";
 import dealerOrdersApi from "../../../services/dealerOrdersApi";
 import { customerApi } from "../../../services/customerApi";
+import promotionApi from "../../../services/promotionApi";
 import { useAuth } from "../../../hooks/useAuth";
 
 // Status badge variant mapping
@@ -185,6 +186,9 @@ function VehiclesPage() {
   const [statusFilter, setStatusFilter] = useState("");
   const [alert, setAlert] = useState({ type: "", message: "" });
 
+  // Promotions state - stores promotions for each vehicle
+  const [vehiclePromotions, setVehiclePromotions] = useState({});
+
   // Feedback modal state
   const [showFeedbackPrompt, setShowFeedbackPrompt] = useState(false);
   const [showFeedbackForm, setShowFeedbackForm] = useState(false);
@@ -202,6 +206,13 @@ function VehiclesPage() {
   useEffect(() => {
     filterVehicles();
   }, [searchQuery, statusFilter, vehicles]);
+
+  // Fetch promotions for all vehicles
+  useEffect(() => {
+    if (vehicles.length > 0 && user?.id) {
+      fetchAllVehiclePromotions();
+    }
+  }, [vehicles, user]);
 
   const [customers, setCustomers] = useState([]);
 
@@ -241,6 +252,30 @@ function VehiclesPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Fetch promotions for all vehicles
+  const fetchAllVehiclePromotions = async () => {
+    const promotionsMap = {};
+
+    for (const vehicle of vehicles) {
+      try {
+        const response = await promotionApi.getActiveByVehicle(
+          vehicle.id,
+          user.id
+        );
+        if (response.isSuccess && response.data && response.data.length > 0) {
+          promotionsMap[vehicle.id] = response.data;
+        }
+      } catch (error) {
+        console.error(
+          `Error fetching promotions for vehicle ${vehicle.id}:`,
+          error
+        );
+      }
+    }
+
+    setVehiclePromotions(promotionsMap);
   };
 
   const filterVehicles = () => {
@@ -321,7 +356,7 @@ function VehiclesPage() {
       console.error("Error creating order:", err);
       setOrderError(
         err.response?.data?.message ||
-        "Failed to create order. Please try again."
+          "Failed to create order. Please try again."
       );
       setOrderSubmitting(false);
     }
@@ -355,7 +390,11 @@ function VehiclesPage() {
 
     console.log("Feedback Order Info:", feedbackOrderInfo);
 
-    if (!feedbackOrderInfo || !feedbackOrderInfo.orderId || !feedbackOrderInfo.customerId) {
+    if (
+      !feedbackOrderInfo ||
+      !feedbackOrderInfo.orderId ||
+      !feedbackOrderInfo.customerId
+    ) {
       console.error("Missing order or customer information");
       setShowFeedbackForm(false);
       setShowThankYou(true);
@@ -384,6 +423,12 @@ function VehiclesPage() {
       setShowFeedbackForm(false);
       setShowThankYou(true);
     }
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return "-";
+    const date = new Date(dateString);
+    return date.toLocaleDateString("vi-VN");
   };
 
   return (
@@ -507,9 +552,73 @@ function VehiclesPage() {
                       </span>
                     </div>
                   </div>
-                  <div className="text-3xl font-bold text-orange-400 mb-4">
-                    {formatCurrency(detailVehicle.finalPrice)}
+
+                  {/* Promotions in Detail View */}
+                  {vehiclePromotions[detailVehicle.id] &&
+                    vehiclePromotions[detailVehicle.id].length > 0 && (
+                      <div className="bg-green-500/10 border border-green-500 rounded-lg p-4 mb-4">
+                        <div className="text-base text-green-300 font-semibold mb-2">
+                          Active Promotions:
+                        </div>
+                        <div className="space-y-2">
+                          {vehiclePromotions[detailVehicle.id].map((promo) => (
+                            <div
+                              key={promo.id}
+                              className="flex items-center justify-between bg-slate-900 p-3 rounded"
+                            >
+                              <div className="flex flex-col gap-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-semibold text-white">
+                                    {promo.name}
+                                  </span>
+                                  <span className="text-xs bg-green-500 text-white px-2 py-0.5 rounded">
+                                    {promo.discountPercent}% OFF
+                                  </span>
+                                </div>
+                                <span className="text-xs text-slate-400">
+                                  {promo.description}
+                                </span>
+                                <span className="text-xs text-slate-500">
+                                  Valid: {formatDate(promo.startDate)} -{" "}
+                                  {formatDate(promo.endDate)}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                  {/* Price Display in Detail View */}
+                  <div className="bg-slate-900 rounded-lg p-4 mb-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-base text-slate-400">
+                        Base Price:
+                      </span>
+                      <span className="text-lg font-semibold text-slate-300">
+                        {formatCurrency(detailVehicle.basePrice)}
+                      </span>
+                    </div>
+                    {detailVehicle.sellingPrice && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-base text-slate-400">
+                          Selling Price:
+                        </span>
+                        <span className="text-lg font-semibold text-blue-400">
+                          {formatCurrency(detailVehicle.sellingPrice)}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between pt-2 border-t border-slate-700">
+                      <span className="text-base text-slate-400">
+                        Final Price:
+                      </span>
+                      <span className="text-3xl font-bold text-orange-400">
+                        {formatCurrency(detailVehicle.finalPrice)}
+                      </span>
+                    </div>
                   </div>
+
                   <Button
                     variant="primary"
                     onClick={() => setDetailVehicle(null)}
@@ -573,6 +682,34 @@ function VehiclesPage() {
                           {vehicle.description}
                         </div>
                       </div>
+
+                      {/* Active Promotions Display */}
+                      {vehiclePromotions[vehicle.id] &&
+                        vehiclePromotions[vehicle.id].length > 0 && (
+                          <div className="bg-green-500/10 border border-green-500 rounded-lg p-2 mb-2">
+                            <div className="text-xs text-green-300 font-semibold mb-1">
+                              Active Promotions:
+                            </div>
+                            <div className="space-y-1">
+                              {vehiclePromotions[vehicle.id].map((promo) => (
+                                <div
+                                  key={promo.id}
+                                  className="flex items-center justify-between"
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs text-white">
+                                      {promo.name}
+                                    </span>
+                                    <span className="text-[10px] bg-green-500 text-white px-1.5 py-0.5 rounded">
+                                      {promo.discountPercent}% OFF
+                                    </span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
                       <div className="grid grid-cols-2 gap-1 mb-1">
                         <div>
                           <span className="text-xs text-slate-400">Range:</span>
@@ -684,8 +821,8 @@ function VehiclesPage() {
                   alt={orderVehicle.modelName}
                   className="w-32 h-24 object-cover rounded bg-slate-700 border border-slate-600"
                   onError={(e) =>
-                  (e.target.src =
-                    "https://via.placeholder.com/128x96?text=No+Image")
+                    (e.target.src =
+                      "https://via.placeholder.com/128x96?text=No+Image")
                   }
                 />
                 <div className="flex-1">
@@ -847,9 +984,7 @@ function VehiclesPage() {
                 <div className="font-bold text-lg mb-1">
                   ✓ Order Created Successfully!
                 </div>
-                <div className="text-sm">
-                  Order ID: {createdOrder.id}
-                </div>
+                <div className="text-sm">Order ID: {createdOrder.id}</div>
               </div>
 
               {/* Vehicle Information */}
@@ -923,9 +1058,7 @@ function VehiclesPage() {
 
               {/* Order Details */}
               <div className="border-b border-slate-700 pb-4">
-                <h3 className="font-semibold text-white mb-3">
-                  Order Details
-                </h3>
+                <h3 className="font-semibold text-white mb-3">Order Details</h3>
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
                     <span className="text-slate-400">Payment Type:</span>

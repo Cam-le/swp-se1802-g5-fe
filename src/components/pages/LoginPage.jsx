@@ -209,7 +209,7 @@ function LoginPage() {
             {/* Alerts */}
             <Alert type="error" message={loginError} />
 
-            {/* Demo Accounts Info */}
+            {/* Demo Accounts Info
             <div className="mb-6 bg-blue-500 bg-opacity-10 border border-blue-500 rounded-lg p-4">
               <p className="text-blue-400 text-sm font-medium mb-2">
                 Accounts (Password: 12345):
@@ -220,7 +220,7 @@ function LoginPage() {
                 <p>• Dealer Manager: DealerManager@gmail.com</p>
                 <p>• Dealer Staff: dealerStaff@gmail.com</p>
               </div>
-            </div>
+            </div> */}
 
             {/* Form */}
             <form onSubmit={handleSubmit} className="space-y-5">
