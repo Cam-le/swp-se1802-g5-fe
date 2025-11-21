@@ -83,6 +83,10 @@ function AdminDashboard() {
     return value.toLocaleString();
   };
 
+  const formatFullCurrency = (value) => {
+    return value.toLocaleString("en-US");
+  };
+
   const totalRevenue = profitData.reduce((sum, item) => sum + item.revenue, 0);
   const totalCost = profitData.reduce((sum, item) => sum + item.cost, 0);
   const totalProfit = profitData.reduce((sum, item) => sum + item.profit, 0);
@@ -106,7 +110,7 @@ function AdminDashboard() {
               <div>
                 <p className="text-sm text-slate-400">Total Revenue</p>
                 <p className="text-2xl font-bold text-white mt-1">
-                  {loading ? "..." : `₫${formatCurrency(totalRevenue)}`}
+                  {loading ? "..." : `₫${formatFullCurrency(totalRevenue)}`}
                 </p>
                 <p className="text-xs text-slate-500 mt-1">Last 12 months</p>
               </div>
@@ -133,7 +137,7 @@ function AdminDashboard() {
               <div>
                 <p className="text-sm text-slate-400">Total Cost</p>
                 <p className="text-2xl font-bold text-white mt-1">
-                  {loading ? "..." : `₫${formatCurrency(totalCost)}`}
+                  {loading ? "..." : `₫${formatFullCurrency(totalCost)}`}
                 </p>
                 <p className="text-xs text-slate-500 mt-1">Last 12 months</p>
               </div>
@@ -160,7 +164,7 @@ function AdminDashboard() {
               <div>
                 <p className="text-sm text-slate-400">Total Profit</p>
                 <p className="text-2xl font-bold text-white mt-1">
-                  {loading ? "..." : `₫${formatCurrency(totalProfit)}`}
+                  {loading ? "..." : `₫${formatFullCurrency(totalProfit)}`}
                 </p>
                 <p className="text-xs text-slate-500 mt-1">Last 12 months</p>
               </div>
@@ -312,7 +316,7 @@ function AdminDashboard() {
                         borderRadius: "8px",
                         color: "#fff",
                       }}
-                      formatter={(value) => `₫${formatCurrency(value)}`}
+                      formatter={(value) => `₫${formatFullCurrency(value)}`}
                     />
                     <Legend />
                     <Area
@@ -356,7 +360,7 @@ function AdminDashboard() {
                         borderRadius: "8px",
                         color: "#fff",
                       }}
-                      formatter={(value) => `₫${formatCurrency(value)}`}
+                      formatter={(value) => `₫${formatFullCurrency(value)}`}
                     />
                     <Legend />
                     <Line
@@ -391,7 +395,7 @@ function AdminDashboard() {
                         borderRadius: "8px",
                         color: "#fff",
                       }}
-                      formatter={(value) => `₫${formatCurrency(value)}`}
+                      formatter={(value) => `₫${formatFullCurrency(value)}`}
                     />
                     <Legend />
                     <Bar
