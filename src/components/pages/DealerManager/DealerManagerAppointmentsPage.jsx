@@ -787,9 +787,71 @@ function AppointmentsPage() {
                                 <div className="text-white font-semibold text-lg">{formatDateTime(selectedAppointment.appointment_datetime)}</div>
                             </div>
                             {/* Vehicle Info */}
-                            <div className="bg-gradient-to-br from-emerald-500/10 to-emerald-600/5 border border-emerald-500/20 rounded-lg p-4">
-                                <h3 className="text-lg font-semibold text-white mb-3">Vehicle</h3>
-                                <div className="text-xl font-bold text-white">{selectedAppointment.vehicle_model_name} {selectedAppointment.vehicle_version}</div>
+                            <div className="bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700 shadow-xl rounded-lg p-6">
+                                <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                                    <svg className="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                    </svg>
+                                    Vehicle Details
+                                </h3>
+                                {(() => {
+                                    const vehicle = vehicles.find(v => v.id === selectedAppointment.vehicle_id);
+                                    if (!vehicle) {
+                                        return (
+                                            <div className="text-slate-400">
+                                                <div className="text-xl font-bold text-white mb-2">{selectedAppointment.vehicle_model_name} {selectedAppointment.vehicle_version}</div>
+                                                <p className="text-sm">Full vehicle details not available</p>
+                                            </div>
+                                        );
+                                    }
+                                    return (
+                                        <div className="flex flex-col md:flex-row gap-6">
+                                            <div className="flex-shrink-0">
+                                                <img
+                                                    src={vehicle.imageUrl || vehicle.image_url || "https://via.placeholder.com/320x240?text=No+Image"}
+                                                    alt={vehicle.modelName || vehicle.model_name}
+                                                    className="w-full md:w-80 h-60 object-cover rounded-lg bg-slate-700 border border-slate-600 shadow-lg"
+                                                />
+                                            </div>
+                                            <div className="flex-1 space-y-4">
+                                                <div>
+                                                    <div className="text-3xl font-bold text-white mb-2">
+                                                        {vehicle.modelName || vehicle.model_name}
+                                                    </div>
+                                                    <div className="text-lg text-blue-400 font-semibold mb-3">{vehicle.version}</div>
+                                                    <div className="text-slate-300 leading-relaxed">{vehicle.description || 'No description available'}</div>
+                                                </div>
+
+                                                <div className="grid grid-cols-2 gap-4 pt-4">
+                                                    <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700">
+                                                        <div className="text-slate-400 text-sm mb-1">Range per Charge</div>
+                                                        <div className="text-white font-bold text-lg">{vehicle.rangePerCharge || vehicle.range_per_charge} km</div>
+                                                    </div>
+                                                    <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700">
+                                                        <div className="text-slate-400 text-sm mb-1">Battery Capacity</div>
+                                                        <div className="text-white font-bold text-lg">{vehicle.batteryCapacity || vehicle.battery_capacity} kWh</div>
+                                                    </div>
+                                                    <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700">
+                                                        <div className="text-slate-400 text-sm mb-1">Color</div>
+                                                        <div className="text-white font-bold text-lg">{vehicle.color}</div>
+                                                    </div>
+                                                    <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700">
+                                                        <div className="text-slate-400 text-sm mb-1">Launch Date</div>
+                                                        <div className="text-white font-bold text-lg">{vehicle.launchDate || vehicle.launch_date}</div>
+                                                    </div>
+                                                    <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700">
+                                                        <div className="text-slate-400 text-sm mb-1">Price</div>
+                                                        <div className="text-orange-400 font-bold text-lg">{vehicle.basePrice ? `${vehicle.basePrice.toLocaleString()} ₫` : 'N/A'}</div>
+                                                    </div>
+                                                    <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700">
+                                                        <div className="text-slate-400 text-sm mb-1">Stock</div>
+                                                        <div className="text-white font-bold text-lg">{vehicle.currentStock || vehicle.stock || 0}</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
                             </div>
                             {/* Notes */}
                             {selectedAppointment.note && (

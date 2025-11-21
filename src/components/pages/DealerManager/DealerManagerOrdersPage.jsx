@@ -233,10 +233,9 @@ function DealerManagerOrdersPage() {
         console.error("Error refetching customers:", err);
       }
 
-      setAlert({ type: "success", message: "Order created successfully" });
-      setTimeout(() => closeModal(), 800);
+      setAlert({ type: "success", message: "Order created successfully!" });
+      closeModal();
     } catch (err) {
-      console.error("Error creating order:", err);
       setAlert({
         type: "error",
         message: err.response?.data?.message || "Failed to create order",
@@ -253,10 +252,10 @@ function DealerManagerOrdersPage() {
   const selectedQty = formData.quantity || 1;
   const stockCount = selectedVehicle
     ? selectedVehicle.stock ??
-      selectedVehicle.available ??
-      selectedVehicle.inStock ??
-      selectedVehicle.currentStock ??
-      0
+    selectedVehicle.available ??
+    selectedVehicle.inStock ??
+    selectedVehicle.currentStock ??
+    0
     : 0;
   const notEnoughStock = selectedVehicle && selectedQty > stockCount;
 
@@ -312,19 +311,18 @@ function DealerManagerOrdersPage() {
                     {o.vehicleModelName
                       ? `${o.vehicleModelName} ${o.vehicleVersion || ""}`
                       : o.vehicleName ||
-                        o.vehicle_name ||
-                        o.vehicleId ||
-                        o.vehicle_id ||
-                        "-"}
+                      o.vehicle_name ||
+                      o.vehicleId ||
+                      o.vehicle_id ||
+                      "-"}
                   </td>
                   <td className="px-4 py-2">
                     <span
-                      className={`px-2 py-1 rounded text-xs font-semibold ${
-                        o.orderStatus === "confirmed" ||
+                      className={`px-2 py-1 rounded text-xs font-semibold ${o.orderStatus === "confirmed" ||
                         o.status === "confirmed"
-                          ? "bg-green-500 text-white"
-                          : "bg-slate-600"
-                      }`}
+                        ? "bg-green-500 text-white"
+                        : "bg-slate-600"
+                        }`}
                     >
                       {o.orderStatus || o.order_status || o.status || "-"}
                     </span>
@@ -393,9 +391,8 @@ function DealerManagerOrdersPage() {
                   Select a vehicle
                 </option>
                 {availableVehicles.map((v) => (
-                  <option key={v.id} value={v.id}>{`${
-                    v.modelName || v.model_name
-                  } ${v.version || ""}`}</option>
+                  <option key={v.id} value={v.id}>{`${v.modelName || v.model_name
+                    } ${v.version || ""}`}</option>
                 ))}
               </select>
             </div>
@@ -449,10 +446,10 @@ function DealerManagerOrdersPage() {
                         );
                         return v
                           ? `${(
-                              v.basePrice ||
-                              v.base_price ||
-                              0
-                            ).toLocaleString()} VND`
+                            v.basePrice ||
+                            v.base_price ||
+                            0
+                          ).toLocaleString()} VND`
                           : "";
                       })()}
                     </td>
@@ -479,8 +476,8 @@ function DealerManagerOrdersPage() {
                         const qty = formData.quantity || 1;
                         return v
                           ? `${(
-                              (v.basePrice || v.base_price || 0) * qty
-                            ).toLocaleString()} VND`
+                            (v.basePrice || v.base_price || 0) * qty
+                          ).toLocaleString()} VND`
                           : "";
                       })()}
                     </td>
@@ -511,8 +508,8 @@ function DealerManagerOrdersPage() {
                 const qty = formData.quantity || 1;
                 return v
                   ? `${(
-                      (v.basePrice || v.base_price || 0) * qty
-                    ).toLocaleString()} VND`
+                    (v.basePrice || v.base_price || 0) * qty
+                  ).toLocaleString()} VND`
                   : "0 VND";
               })()}
             </div>
