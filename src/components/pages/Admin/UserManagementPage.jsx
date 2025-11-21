@@ -393,7 +393,11 @@ function UserManagementPage() {
     setIsSubmitting(true);
     try {
       const response = await userApi.delete(deletingUser.id);
-      if (response.isSuccess) {
+
+      // Check for success: either isSuccess=true OR empty response (204 No Content)
+      const isSuccess = response?.isSuccess || response === "" || !response;
+
+      if (isSuccess) {
         setUsers((prev) => prev.filter((u) => u.id !== deletingUser.id));
         setAlert({
           type: "success",

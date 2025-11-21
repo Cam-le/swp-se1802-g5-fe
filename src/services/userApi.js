@@ -132,6 +132,17 @@ export const userApi = {
       console.log("Deleting user:", id);
       const response = await apiClient.delete(`/api/User/${id}`);
       console.log("User deleted successfully:", response.data);
+
+      // Handle 204 No Content response (empty body)
+      if (response.data === "" || !response.data) {
+        return {
+          isSuccess: true,
+          messages: ["User deleted successfully"],
+          resultStatus: 0,
+          data: null,
+        };
+      }
+
       return response.data;
     } catch (error) {
       console.error("Error deleting user:", error);
