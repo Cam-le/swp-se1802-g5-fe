@@ -17,6 +17,7 @@ import { formatCurrency, formatShortDate } from "../../../utils/helpers";
 import { vehicleApi } from "../../../services/vehicleApi";
 import dealerOrdersApi from "../../../services/dealerOrdersApi";
 import { customerApi } from "../../../services/customerApi";
+import promotionApi from "../../../services/promotionApi";
 import { useAuth } from "../../../hooks/useAuth";
 
 // Status badge variant mapping
@@ -137,6 +138,9 @@ function VehiclesPage() {
   const [statusFilter, setStatusFilter] = useState("");
   const [alert, setAlert] = useState({ type: "", message: "" });
 
+  // Promotions state - stores promotions for each vehicle
+  const [vehiclePromotions, setVehiclePromotions] = useState({});
+
   // Feedback modal state
   const [showFeedbackPrompt, setShowFeedbackPrompt] = useState(false);
   const [showFeedbackForm, setShowFeedbackForm] = useState(false);
@@ -154,6 +158,13 @@ function VehiclesPage() {
   useEffect(() => {
     filterVehicles();
   }, [searchQuery, statusFilter, vehicles]);
+
+  // Fetch promotions for all vehicles
+  useEffect(() => {
+    if (vehicles.length > 0 && user?.id) {
+      fetchAllVehiclePromotions();
+    }
+  }, [vehicles, user]);
 
   const [customers, setCustomers] = useState([]);
 
@@ -195,6 +206,30 @@ function VehiclesPage() {
     }
   };
 
+  // Fetch promotions for all vehicles
+  const fetchAllVehiclePromotions = async () => {
+    const promotionsMap = {};
+
+    for (const vehicle of vehicles) {
+      try {
+        const response = await promotionApi.getActiveByVehicle(
+          vehicle.id,
+          user.id
+        );
+        if (response.isSuccess && response.data && response.data.length > 0) {
+          promotionsMap[vehicle.id] = response.data;
+        }
+      } catch (error) {
+        console.error(
+          `Error fetching promotions for vehicle ${vehicle.id}:`,
+          error
+        );
+      }
+    }
+
+    setVehiclePromotions(promotionsMap);
+  };
+
   const filterVehicles = () => {
     let filtered = [...vehicles];
 
@@ -234,7 +269,9 @@ function VehiclesPage() {
 
       // Calculate price and quantity
       const qty = orderForm.quantity || 1;
-      const price = orderVehicle ? orderVehicle.basePrice || 0 : 0;
+      const price = orderVehicle
+        ? orderVehicle.finalPrice || orderVehicle.basePrice || 0
+        : 0;
 
       // Prepare payload matching backend API
       const payload = {
@@ -292,6 +329,12 @@ function VehiclesPage() {
     e.preventDefault();
     setShowFeedbackForm(false);
     setShowThankYou(true);
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return "-";
+    const date = new Date(dateString);
+    return date.toLocaleDateString("vi-VN");
   };
 
   return (
@@ -415,9 +458,73 @@ function VehiclesPage() {
                       </span>
                     </div>
                   </div>
-                  <div className="text-3xl font-bold text-orange-400 mb-4">
-                    {formatCurrency(detailVehicle.basePrice)}
+
+                  {/* Promotions in Detail View */}
+                  {vehiclePromotions[detailVehicle.id] &&
+                    vehiclePromotions[detailVehicle.id].length > 0 && (
+                      <div className="bg-green-500/10 border border-green-500 rounded-lg p-4 mb-4">
+                        <div className="text-base text-green-300 font-semibold mb-2">
+                          Active Promotions:
+                        </div>
+                        <div className="space-y-2">
+                          {vehiclePromotions[detailVehicle.id].map((promo) => (
+                            <div
+                              key={promo.id}
+                              className="flex items-center justify-between bg-slate-900 p-3 rounded"
+                            >
+                              <div className="flex flex-col gap-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-semibold text-white">
+                                    {promo.name}
+                                  </span>
+                                  <span className="text-xs bg-green-500 text-white px-2 py-0.5 rounded">
+                                    {promo.discountPercent}% OFF
+                                  </span>
+                                </div>
+                                <span className="text-xs text-slate-400">
+                                  {promo.description}
+                                </span>
+                                <span className="text-xs text-slate-500">
+                                  Valid: {formatDate(promo.startDate)} -{" "}
+                                  {formatDate(promo.endDate)}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                  {/* Price Display in Detail View */}
+                  <div className="bg-slate-900 rounded-lg p-4 mb-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-base text-slate-400">
+                        Base Price:
+                      </span>
+                      <span className="text-lg font-semibold text-slate-300">
+                        {formatCurrency(detailVehicle.basePrice)}
+                      </span>
+                    </div>
+                    {detailVehicle.sellingPrice && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-base text-slate-400">
+                          Selling Price:
+                        </span>
+                        <span className="text-lg font-semibold text-blue-400">
+                          {formatCurrency(detailVehicle.sellingPrice)}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between pt-2 border-t border-slate-700">
+                      <span className="text-base text-slate-400">
+                        Final Price:
+                      </span>
+                      <span className="text-3xl font-bold text-orange-400">
+                        {formatCurrency(detailVehicle.finalPrice)}
+                      </span>
+                    </div>
                   </div>
+
                   <Button
                     variant="primary"
                     onClick={() => setDetailVehicle(null)}
@@ -481,6 +588,34 @@ function VehiclesPage() {
                           {vehicle.description}
                         </div>
                       </div>
+
+                      {/* Active Promotions Display */}
+                      {vehiclePromotions[vehicle.id] &&
+                        vehiclePromotions[vehicle.id].length > 0 && (
+                          <div className="bg-green-500/10 border border-green-500 rounded-lg p-2 mb-2">
+                            <div className="text-xs text-green-300 font-semibold mb-1">
+                              Active Promotions:
+                            </div>
+                            <div className="space-y-1">
+                              {vehiclePromotions[vehicle.id].map((promo) => (
+                                <div
+                                  key={promo.id}
+                                  className="flex items-center justify-between"
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs text-white">
+                                      {promo.name}
+                                    </span>
+                                    <span className="text-[10px] bg-green-500 text-white px-1.5 py-0.5 rounded">
+                                      {promo.discountPercent}% OFF
+                                    </span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
                       <div className="grid grid-cols-2 gap-1 mb-1">
                         <div>
                           <span className="text-xs text-slate-400">Range:</span>
@@ -530,7 +665,7 @@ function VehiclesPage() {
                         </span>
                       </div>
                       <div className="text-lg font-bold text-orange-400 mb-2">
-                        {formatCurrency(vehicle.basePrice)}
+                        {formatCurrency(vehicle.finalPrice)}
                       </div>
                       <div className="flex gap-2 mt-auto">
                         <Button
@@ -609,7 +744,7 @@ function VehiclesPage() {
                   <div className="text-slate-400 text-sm mt-1">
                     Đơn giá:{" "}
                     <span className="font-semibold text-white">
-                      {formatCurrency(orderVehicle.basePrice)}
+                      {formatCurrency(orderVehicle.finalPrice)}
                     </span>
                   </div>
                 </div>
